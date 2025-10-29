@@ -1,0 +1,96 @@
+body.no-select {
+    user-select: none;
+    -moz-user-select: none;
+    -webkit-user-select: none;
+    -ms-user-select: none;
+}
+
+.time-filter {
+    margin: -5px 0;
+}
+
+.filter-header {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 10px;
+    color: #000000;
+    /*font-family: 'Inter-Regular';*/
+}
+
+.slider-container {
+    position: relative;
+    height: 30px;
+    touch-action: none;
+}
+
+.slider-track {
+    position: absolute;
+    width: 90%;
+    height: 2px;
+    background: #000000;
+    border-radius: 2px;
+    top: 50%;
+    transform: translateY(-50%);
+}
+
+.slider-range {
+    position: absolute;
+    height: 161%;
+    background: #000000;
+    border-radius: 2px;
+}
+.slider-handle {
+    position: absolute;
+    width: 16px;
+    height: 16px;
+    background: #000000;
+    border-radius: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    cursor: pointer;
+    z-index: 2;
+}
+
+.slider-handle:hover .tooltip,
+.slider-handle:active .tooltip {
+    opacity: 1;
+}
+
+.tooltip {
+    position: absolute;
+    bottom: 25px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: #1e1f28;
+    color: #fff;
+    padding: 6px 12px;
+    border-radius: 4px;
+    font-size: 12px;
+    opacity: 0;
+    transition: opacity 0.2s;
+    white-space: nowrap;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+}
+
+/*.slider-handle {*/
+/*    transition: left 0.1s ease-out; !* Плавное перемещение *!*/
+/*}*/
+
+/*.slider-range {*/
+/*    transition: left 0.1s ease-out, width 0.1s ease-out;*/
+/*}*/
+
+
+/* DoubleTimeSlider.css */
+.slider-handle {
+    transition: none; /* Убрать анимацию позиции */
+}
+
+.slider-track::before {
+    content: '';
+    position: absolute;
+    left: -10px;
+    right: -10px;
+    height: 100%;
+    z-index: -1;
+}

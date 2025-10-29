@@ -1,0 +1,95 @@
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+lerna-debug.log*
+
+# Diagnostic reports
+report.[0-9]*.[0-9]*.[0-9]*.[0-9]*.json
+
+# Runtime data
+pids
+*.pid
+*.seed
+*.pid.lock
+
+# Coverage
+coverage
+*.lcov
+.nyc_output
+
+# Dependency directories
+node_modules/
+jspm_packages/
+web_modules/
+vendor/
+
+# Deno
+.deno
+*.mod.ts.deps
+
+# Build outputs
+build/
+dist/
+.next
+out
+.nuxt
+.vuepress/dist
+.temp
+.cache
+.docusaurus
+.serverless/
+.fusebox/
+.dynamodb/
+
+# Caches
+.cache
+.parcel-cache
+.rpt2_cache/
+.rts2_cache_cjs/
+.rts2_cache_es/
+.rts2_cache_umd/
+.yarn/cache
+.yarn/unplugged
+.yarn/build-state.yml
+.yarn/install-state.gz
+.pnp.*
+.npm
+.eslintcache
+.stylelintcache
+
+# Environment
+.env
+.env.*.local
+
+# OS & Editors
+.DS_Store
+Thumbs.db
+.vscode/*
+!.vscode/extensions.json
+.idea
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# Adobe Illustrator
+*.ai
+
+# Heavy media & archives
+*.mp4
+*.mp3
+*.zip
+*.tar
+*.gz
+*.exe
+*.dll
+*.so
+*.dylib
+
+# Temp
+tmp/
+temp/

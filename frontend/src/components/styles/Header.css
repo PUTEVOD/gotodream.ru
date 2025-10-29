@@ -1,0 +1,139 @@
+/* Стили для Header компонента */
+@font-face {
+    font-family: 'Manrope';
+    src: local('Manrope'), url(X:/Projects/PUTEVOD/Crack/gotodream.ru/frontend/src/components/fonts/Manrope-VariableFont_wght.ttf) format('truetype');
+}
+@font-face {
+    font-family: 'Prospec';
+    src: local('Prospec'), url(X:/Projects/PUTEVOD/Crack/gotodream.ru/frontend/src/components/fonts/Prospec-Light.ttf) format('truetype');
+}
+
+@keyframes slideDown {
+    from {
+        transform: translateY(-100%);
+        opacity: 0;
+    }
+    to {
+        transform: translateY(0);
+        opacity: 1;
+    }
+}
+
+.header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 15px 20px;
+    background-color: #0a0a0a;
+    /*box-shadow: 0 2px 4px rgba(0,0,0,0.1);*/
+    position: relative;
+    z-index: 1000;
+    /*animation: slideDown 0.8s ease-out forwards;*/
+}
+
+.header__left,
+.header__center,
+.header__right {
+    display: flex;
+    align-items: center;
+}
+
+/* Логотип */
+.logo {
+    font-family: Prospec, serif !important;
+    font-size: 60px;
+    /*font-weight: bold;*/
+    color: #fff !important;
+    letter-spacing: 0.3em;
+    text-decoration: none; /* Убирает подчеркивание */
+    /*color: inherit;        !* Заставляет ссылку наследовать цвет родителя *!*/
+    background: none;      /* Убирает фон, если есть */
+    border: none;          /* Убирает рамку, если есть */
+    outline: none;         /* Убирает обводку при фокусе (но следите за доступностью) */
+}
+
+.logo:hover,
+.logo:active,
+.logo:visited {
+    text-decoration: none;
+    color: inherit;
+}
+
+/* Стили для переключателя языков */
+.language-options {
+    /*font-family: Inter-Light;*/
+    list-style: none;
+    display: flex;
+    gap: 15px;
+    margin: 0;
+    padding: 0;
+    color: #fff;
+}
+
+/* Стили для анимированного бокового меню */
+.side-menu {
+    position: fixed;
+    top: 0;
+    left: -1000px; /* скрыто по умолчанию */
+    width: 250px;
+    height: 100%;
+    background-color: #1e1f28;
+    color: #fff;
+    padding: 60px 20px;
+    transition: left 0.3s ease;
+    z-index: 999;
+}
+
+.side-menu.open {
+    left: 0;
+}
+
+.side-menu ul {
+    list-style: none;
+    padding: 0;
+}
+
+.side-menu ul li {
+    margin: 20px 0;
+    font-size: 18px;
+}
+
+/* Стили для бургер-меню (основаны на предоставленных ресурсах) */
+.ham {
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+    transition: transform 400ms;
+    -moz-user-select: none;
+    -webkit-user-select: none;
+    -ms-user-select: none;
+    user-select: none;
+}
+.hamRotate.active {
+    transform: rotate(45deg);
+}
+.hamRotate180.active {
+    transform: rotate(180deg);
+}
+.line {
+    fill: none;
+    transition: stroke-dasharray 400ms, stroke-dashoffset 400ms;
+    stroke: #fff;
+    stroke-width: 5.5;
+    stroke-linecap: round;
+}
+
+.ham4 .top {
+    stroke-dasharray: 40 121;
+}
+.ham4 .bottom {
+    stroke-dasharray: 40 121;
+}
+.ham4.active .top {
+    stroke-dashoffset: -68px;
+}
+.ham4.active .bottom {
+    stroke-dashoffset: -68px;
+}
+.ham5 .top {
+    stroke-dasharray: 40 82;
+}

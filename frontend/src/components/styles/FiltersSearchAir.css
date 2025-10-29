@@ -1,0 +1,146 @@
+/* Filters */
+.filters-container {
+    min-height: 100vh;
+    display: flex;
+    gap: 40px;
+    /*margin-top: 40px;*/
+    /*padding: 20px;*/
+    /*background: #1e1f28;*/
+    background: #ffffff;
+    border-radius: 16px;
+}
+
+.filters-left, .filters-right {
+    position: sticky;
+    /*top: 0px; !* Зафиксирует фильтры при скролле *!*/
+    align-self: start; /* Помогает при использовании flexbox */
+    height: fit-content; /* Гарантирует, что содержимое не растягивается */
+}
+
+.filters-right {
+    margin-right: 8%;
+    grid-column: 3 / 4;
+    grid-row: 1 / 5;
+    position: sticky !important;
+    top: 10%;
+}
+/*Ниже закомментированные стили выравнивают правый блок фильтров по правому краю экрана*/
+/*.filters-right .filter-group {*/
+/*    align-items: flex-end; !* Выравнивание содержимого по правому краю *!*/
+/*}*/
+/*.filters-right .filter-title {*/
+/*    text-align: right; !* Текст заголовка справа *!*/
+/*    width: 100%; !* Занимает всю ширину *!*/
+/*}*/
+/*!* Для правого блока *!*/
+/*.filters-right .filter-item {*/
+/*    flex-direction: row-reverse; !* Обратный порядок элементов *!*/
+/*    justify-content: flex-end; !* Выравнивание к правому краю *!*/
+/*    gap: 12px;*/
+/*}*/
+
+/*!* Сдвигаем чекбоксы/радиокнопки вправо *!*/
+/*.filters-right .checkmark,*/
+/*.filters-right .radiomark {*/
+/*    margin-left: auto; !* Автоматический отступ слева *!*/
+/*}*/
+.filters-left{
+    margin-left: 8%;
+    grid-column: 0 / 1;
+    grid-row: 1 / 5;
+    position: sticky !important;
+    top: 10%;
+}
+.filters-column {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+.filter-group {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.filter-title {
+    /*font-family: 'Inter-SemiBold';*/
+    /*color: #ffffff;*/
+    color: #000000;
+    margin-bottom: 8px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid #000000;
+}
+
+.filter-label{
+    /*font-family: 'Inter-Regular';*/
+    /*color: #ffffff;*/
+    color: #000000;
+    /*margin-bottom: 4px;*/
+    /*padding-bottom: 4px;*/
+    /*border-bottom: 1px solid #3a3b45;*/
+}
+
+.filter-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 8px 0;
+    color: #000000;
+    /*color: #ffffff;*/
+    cursor: pointer;
+    position: relative;
+}
+
+.filter-divider {
+    height: 1px;
+    /*background: #3a3b45;*/
+    background: #000000;
+    margin: 12px 0;
+}
+
+/* Custom checkboxes */
+.checkmark {
+    display: inline-block;
+    width: 18px;
+    height: 18px;
+    /*border: 2px solid #686a75;*/
+    border: 2px solid #000000;
+    border-radius: 4px;
+    position: relative;
+}
+
+input[type="checkbox"]:checked + .checkmark {
+    background: #000000  ;
+    border-color: #000000  ;
+}
+
+input[type="checkbox"]:checked + .checkmark::after {
+    content: '';
+    position: absolute;
+    left: 4px;
+    top: 1px;
+    width: 5px;
+    height: 10px;
+    /*border: solid #0F121B;*/
+    border: solid #000000;
+    border-width: 0 2px 2px 0;
+    transform: rotate(45deg);
+}
+
+/* Radio buttons */
+.radiomark {
+    display: inline-block;
+    width: 18px;
+    height: 18px;
+    /*border: 2px solid #686a75;*/
+    border: 2px solid #000000;
+    border-radius: 50%;
+}
+
+input[type="radio"]:checked + .radiomark {
+    border-color: #000000  ;
+    background: #000000  ;
+    /*background: radial-gradient(#1890ff 0%, #1890ff 40%, transparent 50%);*/
+}

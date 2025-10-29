@@ -1,0 +1,127 @@
+body {
+    background-color: #fff;
+    margin: 0;
+}
+
+/*.main-container {*/
+/*    display: grid;*/
+/*    !*grid-template-columns: repeat(7, 1fr); !* 7 колонок как в форме *!*!*/
+/*    !*grid-template-rows: repeat(5, auto); !* 5 рядов *!*!*/
+/*    grid-template-columns: 16% 68% 16%;*/
+/*    grid-template-rows: 5vh 20vh;*/
+/*    min-height: 100vh;*/
+/*    position: relative;*/
+/*}*/
+.main-container {
+    display: grid;
+    grid-template-columns: 16% 68% 16%;
+    grid-template-rows: 5vh auto 1fr; /* Изменено для динамического расширения */
+    min-height: 100vh;
+    position: relative;
+}
+.search-form {
+    z-index: 100;
+    padding: 2%;
+    grid-column: 2 / 3;
+    grid-row: 2 / 3;
+    height: auto; /* Убрана фиксированная высота */
+}
+/*.flight-list-wrapper {*/
+/*    grid-column: 2 / 3;*/
+/*    grid-row: 3 / 4;*/
+/*    z-index: 1;*/
+/*    padding: 20px;*/
+/*    background-color: #11121b;*/
+/*    !*overflow-y: auto;*!*/
+/*    !*height: calc(100vh - 40px);*!*/
+/*    !*margin-top: -44vh; !* Компенсируем высоту формы *!*!*/
+/*}*/
+.flight-list-wrapper {
+    grid-column: 2 / 3;
+    grid-row: 3 / 4;
+    z-index: 1;
+    padding: 20px;
+    /*background-color: #11121b;*/
+    background-color: #fff;
+    margin-top: 20px; /* Добавлен отступ */
+}
+.trip-type-selector {
+    /*font-family: Inter-Light;*/
+    /*color: #ffffff;*/
+    color: #000;
+    display: flex;
+    justify-content: center;
+    gap: 5%;
+    padding: 15px 0;
+}
+
+.trip-type-selector .filter-item {
+    display: flex;
+    align-items: center;
+    position: relative;
+    cursor: pointer;
+    margin: 5px 0;
+}
+
+/* Скрываем нативный инпут */
+.trip-type-selector input[type="radio"] {
+    position: absolute;
+    opacity: 0;
+    cursor: pointer;
+    height: 0;
+    width: 0;
+}
+
+/* Кастомный радио-кружок */
+.radiomark {
+    position: relative;
+    height: 18px;
+    width: 18px;
+    min-width: 18px;
+    background-color: transparent;
+    border: 2px solid #686a75;
+    border-radius: 50%;
+    margin-right: 8px;
+    transition: all 0.3s ease;
+}
+
+/* Стиль для выбранного состояния */
+.trip-type-selector input[type="radio"]:checked ~ .radiomark {
+    border-color: #000000;
+    background-color: #000000;
+}
+
+/* Точка внутри выбранного кружка */
+.trip-type-selector input[type="radio"]:checked ~ .radiomark:after {
+    content: "";
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #000000;
+    transform: translate(-50%, -50%);
+}
+/*....................................................................................................................*/
+
+.trip-type-text {
+    /*margin-left: 8px;*/
+    white-space: nowrap;
+}
+
+.complex-route .form-group {
+    /*animation: none; !* Отключаем анимацию для сложного маршрута *!*/
+    grid-row: auto;
+    grid-column: auto;
+}
+
+.complex-route .form-group::after {
+    display: none; /* Скрываем иконки для сложного маршрута */
+}
+button {
+    border: none;
+    outline: none;
+    /* Если эффект смещения создаётся за счёт box-shadow, можно его тоже убрать: */
+    box-shadow: none;
+}

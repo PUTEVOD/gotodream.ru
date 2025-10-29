@@ -1,0 +1,103 @@
+@font-face {
+    font-family: 'Manrope';
+    src: local('Manrope'), url(X:\Projects\PUTEVOD\Crack\gotodream.ru\frontend\src\components\fonts\Manrope-VariableFont_wght.ttf) format('truetype');
+}
+
+
+.menu-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    /* Предполагаем черный фон, как на изображении; настройте по необходимости */
+    /*background-color: #0a0a0a;*/
+    background-color: #ffffff;
+    padding: 20px; /* Отступы для контейнера, настройте по необходимости */
+    gap: 25px;
+}
+
+.menu-row {
+    display: flex;
+    justify-content: center;
+    gap: 25px;
+}
+
+.menu-item {
+    width: 340px;
+    height: 190px;
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    background: transparent;
+    position: relative;
+    cursor: pointer;
+    overflow: hidden;
+}
+
+.corner {
+    width: 5px;
+    height: 5px;
+    /*border: 0.25px solid white;*/
+    position: absolute;
+    background: white;
+}
+
+.top-left {
+    top: -0.25px;
+    left: -0.25px;
+}
+
+.top-right {
+    top: -0.25px;
+    right: -0.25px;
+}
+
+.bottom-left {
+    bottom: -0.25px;
+    left: -0.25px;
+}
+
+.bottom-right {
+    bottom: -0.25px;
+    right: -0.25px;
+}
+
+.text {
+    position: absolute;
+    left: 25px;
+    top: 20px;
+    /*color: white;*/
+    color: black;
+    font-family: 'Manrope', serif; /* Убедитесь, что шрифт Manrope подключен в проекте */
+    font-weight: 300; /* Light */
+    font-size: 27px; /* Размер шрифта не указан, подберите подходящий */
+    white-space: pre-wrap;
+}
+
+.icon-container {
+    position: absolute;
+    right: 10px; /* Отступ от правой границы, настройте для центровки */
+    bottom: 10px; /* Отступ от нижней границы, чтобы иконка была в нижнем правом углу */
+    width: 160px;
+    height: 160px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.icon-container img {
+    max-width: 100%;
+    max-height: 100%;
+    object-fit: contain;
+}
+
+.hover-effect {
+    position: absolute;
+    background: rgba(255, 255, 255, 0.05); /* 5% прозрачность */
+    border-radius: 50%;
+    pointer-events: none; /* Чтобы не мешал кликам */
+    display: none; /* Скрыт по умолчанию */
+    transition: transform 0.1s ease; /* Плавное изменение размера */
+}
+
+.menu-item:hover .hover-effect {
+    display: block;
+}
