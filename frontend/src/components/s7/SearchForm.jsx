@@ -58,13 +58,75 @@ const SearchForm = ({ onSearch, tripType }) => {
         setFlights(newFlights);
     };
 
+    const validateForm = () => {
+        if (tripType === "complex") {
+            return flights.every(flight =>
+                flight.from && flight.to && flight.date
+            );
+        } else {
+            return from && to && departureDate;
+        }
+    };
+
     const handleSubmit = (e) => {
         e.preventDefault();
-        // Формируем данные поиска
-        const searchData =
-            tripType === "complex"
-                ? { flights /*, ... остальные поля */ }
-                : { /* данные для roundTrip / oneWay */ };
+        if (!validateForm()) {
+            alert("Заполните все обязательные поля");
+            return;
+        }
+
+        let searchData = {};
+
+        if (tripType === "complex") {
+            // Для сложного маршрута
+            searchData = {
+                itinerary: flights.map(flight => ({
+                    origin: flight.from,
+                    destination: flight.to,
+                    departureDate: flight.date
+                })),
+                passengers: passengers,
+                cabinClass: classType,
+                tripType: tripType
+            };
+        } else {
+            // Для обычных маршрутов (туда-обратно и в одну сторону)
+            searchData = {
+                itinerary: [{
+                    origin: from,
+                    destination: to,
+                    departureDate: departureDate
+                }],
+                passengers: passengers,
+                cabinClass: classType,
+                tripType: tripType
+            };
+
+            // Добавляем обратный рейс для roundTrip
+            if (tripType === "roundTrip" && returnDate) {
+                searchData.itinerary.push({
+                    origin: to,
+                    destination: from,
+                    departureDate: returnDate
+                });
+            }
+        }
+
+        console.log("Формируем данные для поиска:", searchData);
+
+        // Проверяем обязательные поля
+        if (tripType === "complex") {
+            if (flights.length === 0 || !flights[0].from || !flights[0].to || !flights[0].date) {
+                alert("Заполните информацию о рейсах");
+                return;
+            }
+        } else {
+            if (!from || !to || !departureDate) {
+                alert("Заполните обязательные поля");
+                return;
+            }
+        }
+
         onSearch(searchData);
     };
 

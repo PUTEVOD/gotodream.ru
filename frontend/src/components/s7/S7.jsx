@@ -6,78 +6,100 @@ import "../styles/S7.css";
 import "../styles/FiltersSearchAir.css";
 import Header from '../Header';
 import DoubleTimeSlider from "../ui/DoubleTimeSlider";
+
 const S7 = () => {
     const [s7, sets7] = useState([]);
-    const navigate = useNavigate(); // Хук для навигации
-    const [tripType, setTripType] = useState("roundTrip"); // Объявляем состояние для типа поездки
+    const navigate = useNavigate();
+    const [tripType, setTripType] = useState("roundTrip");
 
-    const [departureRange, setDepartureRange] = useState({
-        lower: 360,   // 06:00
-        upper: 1080   // 18:00
-    });
-    const [arrivalRange, setArrivalRange] = useState({
-        lower: 480,   // 08:00
-        upper: 1200   // 20:00
-    });
-    const [durationRange, setDurationRange] = useState({
-        lower: 60,    // 1 час
-        upper: 600    // 10 часов
-    });
+    const [departureRange, setDepartureRange] = useState({ lower: 360, upper: 1080 });
+    const [arrivalRange, setArrivalRange] = useState({ lower: 480, upper: 1200 });
+    const [durationRange, setDurationRange] = useState({ lower: 60, upper: 600 });
 
+    const [stops, setStops] = useState([]);
+    const [sortType, setSortType] = useState('cheapest');
+    const [selectedClasses, setSelectedClasses] = useState([]);
+    const [selectedAirlines, setSelectedAirlines] = useState([]);
 
-
-    const handleSearch = (searchParams) => {
-        // Здесь можно сделать запрос к API для поиска рейсов
-        const mocks7 = [
-            {
-                id: 1,
-                from: "Москва",
-                to: "Нью-Йорк",
-                date: "2023-12-01",
-                price: 500,
-                departureTime: "08:30",
-                arrivalTime: "14:45",
-                departureAirport: "SVO (Шереметьево)",
-                arrivalAirport: "JFK (Кеннеди)",
-                duration: "8ч 15м",
-                airline: "S7 Airlines"
-            },
-            // ... остальные элементы с аналогичной структурой
-        ];
-        sets7(mocks7);
+    const handleStopsChange = (e) => {
+        const value = parseInt(e.target.value);
+        setStops(e.target.checked ? [...stops, value] : stops.filter(s => s !== value));
     };
 
-    // Функция для перехода на страницу деталей конкретного рейса
-    const handleFlightClick = (flightId) => {
-        navigate(`/s7/${flightId}`); // Перенаправление по маршруту с ID рейса
+    const handleClassChange = (e) => {
+        const value = e.target.value.toLowerCase();
+        setSelectedClasses(e.target.checked ? [...selectedClasses, value] : selectedClasses.filter(c => c !== value));
     };
 
-    // Обработчики изменений
+    const handleAirlineChange = (e) => {
+        const value = e.target.value;
+        setSelectedAirlines(e.target.checked ? [...selectedAirlines, value] : selectedAirlines.filter(a => a !== value));
+    };
+
+    const handleSearch = async (searchParams) => {
+        console.log("Отправляемые данные с формы:", searchParams);
+
+        if (!searchParams || !searchParams.itinerary) {
+            console.warn("Некорректные searchParams — проверь логику SearchForm");
+            return;
+        }
+
+        try {
+            // Добавляем фильтры к параметрам поиска
+            const requestData = {
+                ...searchParams,
+                filters: {
+                    departureRange,
+                    arrivalRange,
+                    durationRange,
+                    stops,
+                    sortType,
+                    selectedClasses,
+                    selectedAirlines
+                }
+            };
+
+            console.log("Полные данные для отправки:", requestData);
+
+            const response = await fetch('http://localhost:8000/api/search', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(requestData)
+            });
+
+            if (!response.ok) throw new Error('Search failed');
+
+            const data = await response.json();
+            console.log("Ответ от сервера:", data);
+            sets7(data.flights || []);
+        } catch (error) {
+            console.error('Ошибка при запросе:', error);
+        }
+    };
+
+    const handleFlightClick = (flightId) => navigate(`/s7/${flightId}`);
+
     const handleDepartureChange = (newLower, newUpper) => {
         if (newUpper - newLower < 60) {
-            if (newLower !== departureRange.lower) {
-                newUpper = newLower + 60;
-            } else {
-                newLower = newUpper - 60;
-            }
+            if (newLower !== departureRange.lower) newUpper = newLower + 60;
+            else newLower = newUpper - 60;
         }
         setDepartureRange({ lower: newLower, upper: newUpper });
     };
 
     return (
         <>
-            <Header/>
+            <Header />
             <div className="main-container">
                 <div className="filters-left">
-                    {/* Левая колонка фильтров */}
                     <div className="filters-column">
                         <div className="filter-group">
                             <h3 className="filter-title">Пересадки</h3>
-                            {[0, 1, 2].map(stops => (
-                                <label key={stops} className="filter-item">
-                                    <input type="checkbox"/>
+                            {[0, 1, 2].map(st => (
+                                <label key={st} className="filter-item">
+                                    <input type="checkbox" value={st} onChange={handleStopsChange} />
                                     <span className="checkmark"></span>
-                                    {stops === 0 ? 'Без пересадок' : `${stops} пересадок`}
+                                    {st === 0 ? 'Без пересадок' : `${st} пересадок`}
                                 </label>
                             ))}
                         </div>
@@ -86,11 +108,21 @@ const S7 = () => {
 
                         <div className="filter-group">
                             <h3 className="filter-title">Сортировка</h3>
-                            {['Самый дешевый', 'Самый быстрый', 'Самый удобный'].map(type => (
-                                <label key={type} className="filter-item">
-                                    <input type="radio" name="sort"/>
+                            {[
+                                { value: 'cheapest', label: 'Самый дешевый' },
+                                { value: 'fastest', label: 'Самый быстрый' },
+                                { value: 'convenient', label: 'Самый удобный' }
+                            ].map(type => (
+                                <label key={type.value} className="filter-item">
+                                    <input
+                                        type="radio"
+                                        name="sort"
+                                        value={type.value}
+                                        checked={sortType === type.value}
+                                        onChange={(e) => setSortType(e.target.value)}
+                                    />
                                     <span className="radiomark"></span>
-                                    {type}
+                                    {type.label}
                                 </label>
                             ))}
                         </div>
@@ -100,9 +132,7 @@ const S7 = () => {
                         <div className="filter-group">
                             <DoubleTimeSlider
                                 label="Время вылета"
-                                min={0}
-                                max={1440}
-                                step={5}
+                                min={0} max={1440} step={5}
                                 lowerValue={departureRange.lower}
                                 upperValue={departureRange.upper}
                                 onChangeLower={(val) => handleDepartureChange(val, departureRange.upper)}
@@ -111,63 +141,66 @@ const S7 = () => {
 
                             <DoubleTimeSlider
                                 label="Время прилета"
-                                min={0}
-                                max={1440}
-                                step={5}
+                                min={0} max={1440} step={5}
                                 lowerValue={arrivalRange.lower}
                                 upperValue={arrivalRange.upper}
-                                onChangeLower={(val) => setArrivalRange(prev => ({...prev, lower: val}))}
-                                onChangeUpper={(val) => setArrivalRange(prev => ({...prev, upper: val}))}
+                                onChangeLower={(val) => setArrivalRange(p => ({ ...p, lower: val }))}
+                                onChangeUpper={(val) => setArrivalRange(p => ({ ...p, upper: val }))}
                             />
 
                             <DoubleTimeSlider
                                 label="Время в пути"
-                                min={30}     // 30 минут
-                                max={720}    // 12 часов
-                                step={5}
+                                min={30} max={720} step={5}
                                 lowerValue={durationRange.lower}
                                 upperValue={durationRange.upper}
-                                onChangeLower={(val) => setDurationRange(prev => ({...prev, lower: val}))}
-                                onChangeUpper={(val) => setDurationRange(prev => ({...prev, upper: val}))}
+                                onChangeLower={(val) => setDurationRange(p => ({ ...p, lower: val }))}
+                                onChangeUpper={(val) => setDurationRange(p => ({ ...p, upper: val }))}
                             />
                         </div>
                     </div>
                 </div>
+
                 <div className="trip-type-selector">
                     {[
-                        {value: "oneWay", label: "В одну сторону"},
-                        {value: "roundTrip", label: "Туда и обратно"},
-                        {value: "complex", label: "Сложный маршрут"},
-                    ].map((option) => (
-                        <label key={option.value} className="filter-item">
+                        { value: "oneWay", label: "В одну сторону" },
+                        { value: "roundTrip", label: "Туда и обратно" },
+                        { value: "complex", label: "Сложный маршрут" },
+                    ].map(opt => (
+                        <label key={opt.value} className="filter-item">
                             <input
                                 type="radio"
                                 name="tripType"
-                                value={option.value}
-                                checked={tripType === option.value}
-                                onChange={() => setTripType(option.value)}
+                                value={opt.value}
+                                checked={tripType === opt.value}
+                                onChange={() => setTripType(opt.value)}
                             />
                             <span className="radiomark"></span>
-                            <span className="trip-type-text">{option.label}</span>
+                            <span className="trip-type-text">{opt.label}</span>
                         </label>
                     ))}
                 </div>
 
-                <SearchForm onSearch={handleSearch} tripType={tripType}/>
+                <SearchForm
+                    onSearch={handleSearch}
+                    tripType={tripType}
+                    filters={{
+                        departureRange, arrivalRange, durationRange,
+                        stops, sortType, selectedClasses, selectedAirlines
+                    }}
+                />
 
                 <div className="flight-list-wrapper">
-                    <FlightList s7={s7} onFlightClick={handleFlightClick}/>
+                    <FlightList s7={s7} onFlightClick={handleFlightClick} />
                 </div>
-                {/* Правая колонка фильтров */}
+
                 <div className="filters-right">
                     <div className="filters-column">
                         <div className="filter-group">
                             <h3 className="filter-title">Класс обслуживания</h3>
                             {['Эконом', 'Комфорт', 'Бизнес'].map(cls => (
                                 <label key={cls} className="filter-item">
-                                    <input type="checkbox"/>
-                                    <span className="checkmark"></span>
-                                    {cls}
+                                    <input type="checkbox" value={cls} onChange={handleClassChange} />
+                                    <span className="checkmark"></span>{cls}
                                 </label>
                             ))}
                         </div>
@@ -178,9 +211,8 @@ const S7 = () => {
                             <h3 className="filter-title">Авиакомпании</h3>
                             {['S7 Airlines', 'Аэрофлот', 'Уральские Авиалинии'].map(company => (
                                 <label key={company} className="filter-item">
-                                    <input type="checkbox"/>
-                                    <span className="checkmark"></span>
-                                    {company}
+                                    <input type="checkbox" value={company} onChange={handleAirlineChange} />
+                                    <span className="checkmark"></span>{company}
                                 </label>
                             ))}
                         </div>

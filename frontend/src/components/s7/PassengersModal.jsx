@@ -35,13 +35,13 @@ const PassengersModal = ({ onClose, setPassengers, setClassType }) => {
                     <span>{infantCount}</span>
                     <button onClick={() => setInfantCount(infantCount + 1)}>+</button>
                 </div>
-                <div className="modal-group">
-                    <label>Класс</label>
-                    <select value={classType} onChange={(e) => setLocalClassType(e.target.value)}>
-                        <option value="economy">Эконом</option>
-                        <option value="business">Бизнес</option>
-                    </select>
-                </div>
+                {/*<div className="modal-group">*/}
+                {/*    <label>Класс</label>*/}
+                {/*    <select value={classType} onChange={(e) => setLocalClassType(e.target.value)}>*/}
+                {/*        <option value="economy">Эконом</option>*/}
+                {/*        <option value="business">Бизнес</option>*/}
+                {/*    </select>*/}
+                {/*</div>*/}
                 <div className="modal-actions">
                     <button onClick={onClose}>Отмена</button>
                     <button onClick={handleSave}>Сохранить</button>
