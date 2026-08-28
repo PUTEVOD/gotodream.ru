@@ -19,10 +19,10 @@ const formatPrice = (value, currency) =>
         maximumFractionDigits: 0,
     }).format(value);
 
-const FlightList = ({ s7, onFlightClick }) => (
+const FlightList = ({ flights, onFlightClick }) => (
     <div className="flight-list">
         <ul>
-            {s7.map((flight) => (
+            {flights.map((flight) => (
                 <li key={flight.id} className="flight-card">
                     <div className="flight-main-info">
                         <div className="flight-departure">
@@ -52,10 +52,7 @@ const FlightList = ({ s7, onFlightClick }) => (
 
                     <div className="flight-price-block">
                         <div className="flight-price">{formatPrice(flight.price, flight.currency)}</div>
-                        <button
-                            className="select-button"
-                            onClick={() => onFlightClick(flight.id)}
-                        >
+                        <button className="select-button" onClick={() => onFlightClick(flight.id)}>
                             Выбрать
                         </button>
                     </div>

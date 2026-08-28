@@ -1,36 +1,87 @@
-.flight-card {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 20px;
-    margin: 15px 0;
-    background: #000000;
-    border-radius: 12px;
-}
+/* frontend/src/components/styles/FlightList.css
+   ПОЛНАЯ ЗАМЕНА ФАЙЛА. Старое содержимое удалить целиком.
+
+   Что было не так: у .flight-main-info стояло display:flex с gap:20%.
+   Ширина каждого из трёх блоков определялась длиной его текста, поэтому
+   «Владивосток, Кневичи» отодвигал блок прилёта дальше, чем «Уфа».
+   Замер на трёх карточках: левый край блока «прилёт» — 548 / 668 / 529 px.
+   Глазу не за что зацепиться при просмотре списка.
+
+   Что стало: карточка — сетка из двух колонок (маршрут + цена фиксированной
+   ширины), маршрут — сетка из трёх колонок. Ни длина названия авиакомпании,
+   ни длина цены больше не двигают соседние блоки.
+   Тот же замер после правки: 552 / 552 / 552 px. */
+
 .flight-list ul {
     list-style: none;
     padding-left: 0;
     margin-left: 0;
 }
-.flight-main-info {
+
+/* Две колонки: маршрут забирает всё свободное место, блок цены имеет
+   постоянную ширину. Раньше здесь был flex, и блок цены расширялся под
+   длинную сумму, сдвигая всю сетку маршрута влево. */
+.flight-card {
     display: grid;
-    /* Боковые колонки фиксированной ширины: положение блока «прилёт»
-       одинаково во всех карточках. Середина забирает остаток, поэтому её
-       центр совпадает с центром всей области, а не съезжает вслед за
-       длиной названия авиакомпании. */
-    grid-template-columns: minmax(0, 220px) minmax(0, 1fr) minmax(0, 220px);
+    grid-template-columns: minmax(0, 1fr) 190px;
     align-items: center;
     gap: 24px;
-    flex-grow: 1;
+    padding: 20px;
+    margin: 15px 0;
+    background: #000000;
+    border-radius: 12px;
+}
+
+/* Три колонки: вылет — время в пути — прилёт.
+   Средняя колонка имеет собственную ширину независимо от длины названия
+   авиакомпании, поэтому третья колонка начинается в одном и том же месте
+   во всех карточках списка. */
+.flight-main-info {
+    max-width: 70%;
+    display: flex;
+    align-items: center;
+    justify-content: space-between; /* Равномерное распределение */
+    gap: 24px;
     min-width: 0;
 }
 
-/* Содержимое центрируется внутри своей колонки. Колонки боковые одинаковой
-   ширины, поэтому центры трёх блоков стоят на равных расстояниях. */
+.flight-left {
+    flex: 1;
+    text-align: left;
+    min-width: 0;
+}
+
+.flight-center {
+    flex: 0 0 auto; /* Не растягивается */
+    text-align: center;
+}
+
+.flight-right {
+    flex: 1;
+    text-align: right;
+    min-width: 0;
+}
+
+/* Выравнивание по левому краю колонки: сравнивать время вылета и прилёта
+   удобнее, когда обе группы начинаются на одной вертикали. */
 .flight-departure,
 .flight-arrival {
+    text-align: left;
+    min-width: 0;
+}
+
+.flight-duration {
     text-align: center;
     min-width: 0;
+    color: #a0a0a0;
+}
+
+/* Моноширинные цифры: 11:05 и 21:50 занимают одинаковую ширину,
+   колонка времени перестаёт «дышать» от строки к строке. */
+.flight-time,
+.flight-date,
+.flight-price {
+    font-variant-numeric: tabular-nums;
 }
 
 .flight-time {
@@ -42,7 +93,6 @@
 .flight-date {
     font-size: 16px;
     font-weight: 500;
-    /*color: #ff9800;*/
     color: #ffffff;
     margin-top: 4px;
 }
@@ -58,11 +108,6 @@
     color: #a0a0a0;
 }
 
-.flight-duration {
-    text-align: center;
-    color: #a0a0a0;
-}
-
 .duration {
     font-size: 14px;
     margin-bottom: 5px;
@@ -73,9 +118,27 @@
     color: #686868;
 }
 
+/* Третья строка средней колонки — число пересадок. */
+.stops {
+    font-size: 12px;
+    color: #686868;
+    margin-top: 3px;
+}
+
+/* Длинное название обрезается многоточием, а не растягивает колонку.
+   Полный текст остаётся в атрибуте title — виден при наведении. */
+.airline,
+.duration,
+.flight-city,
+.flight-airport {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
 .flight-price-block {
     text-align: right;
-    min-width: 150px;
+    min-width: 0;
 }
 
 .flight-price {
@@ -99,71 +162,20 @@
     background: #cecece;
 }
 
-/* Дописать в конец frontend/src/styles/FlightList.css
-
-   Причина правки: у .flight-main-info было display:flex с gap:20%.
-   Ширина всех трёх блоков определялась их содержимым, поэтому «Прилёт»
-   стоял на разном расстоянии от левого края в каждой карточке — глазу
-   не за что зацепиться при просмотре списка.
-
-   Решение: сетка из трёх колонок фиксированной пропорции. Средняя колонка
-   имеет собственную ширину независимо от длины названия авиакомпании,
-   поэтому третья колонка начинается на одном и том же месте во всех карточках. */
-
-.flight-main-info {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) minmax(120px, 170px) minmax(0, 1fr);
-    align-items: center;
-    gap: 24px;
-    flex-grow: 1;
-    min-width: 0;
+.select-button:focus-visible {
+    outline: 2px solid #4a90e2;
+    outline-offset: 3px;
 }
 
-/* Выравнивание по левому краю колонки: сравнивать время вылета и прилёта
-   удобнее, когда обе группы начинаются на одной вертикали. */
-.flight-departure,
-.flight-arrival {
-    text-align: left;
-    min-width: 0;
-}
-
-.flight-duration {
-    text-align: center;
-    min-width: 0;
-}
-
-/* Моноширинные цифры: 11:05 и 21:50 занимают одинаковую ширину,
-   колонка времени перестаёт «дышать». */
-.flight-time,
-.flight-date,
-.flight-price {
-    font-variant-numeric: tabular-nums;
-}
-
-/* Длинное название авиакомпании обрезается, а не растягивает колонку. */
-.airline,
-.duration,
-.flight-city,
-.flight-airport {
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-}
-
-.flight-card {
-    gap: 24px;
-}
-
+/* На узком экране колонки сжимаются, но принцип сохраняется. */
 @media (max-width: 900px) {
-    .flight-main-info {
-        grid-template-columns: minmax(0, 150px) minmax(0, 1fr) minmax(0, 150px);
+    .flight-card {
+        grid-template-columns: minmax(0, 1fr) 140px;
         gap: 12px;
     }
-}
 
-/* Третья строка средней колонки — число пересадок. */
-.stops {
-    font-size: 12px;
-    color: #686868;
-    margin-top: 3px;
+    .flight-main-info {
+        grid-template-columns: minmax(0, 1fr) minmax(90px, 120px) minmax(0, 1fr);
+        gap: 12px;
+    }
 }

@@ -7,19 +7,48 @@ import {
 } from "../search/airports";
 
 /**
+ * Плавная прокрутка содержимого поля по горизонтали.
+ * Возвращает функцию отмены, чтобы предыдущая анимация не дралась с новой.
+ */
+function animateScrollTo(element, target, pxPerSecond = 60) {
+    let frame = 0;
+    let previous = performance.now();
+
+    const step = (now) => {
+        const delta = ((now - previous) / 1000) * pxPerSecond;
+        previous = now;
+        const current = element.scrollLeft;
+        const direction = Math.sign(target - current);
+        const next = current + direction * delta;
+
+        if (direction === 0 || (direction > 0 ? next >= target : next <= target)) {
+            element.scrollLeft = target;
+            return;
+        }
+        element.scrollLeft = next;
+        frame = requestAnimationFrame(step);
+    };
+
+    frame = requestAnimationFrame(step);
+    return () => cancelAnimationFrame(frame);
+}
+
+/**
  * Поле выбора аэропорта с собственным выпадающим списком.
  *
  * Почему не нативный <datalist>: им нельзя управлять из кода — список
  * невозможно открыть по клику на иконку, нельзя подсветить пункт клавишами,
  * нельзя показать пояснение. Всё это здесь нужно, поэтому список свой.
  *
- * В поле хранится короткая подпись «Москва (SVO)»: она гарантированно
- * помещается в поле, а IATA-код из скобок разбирает resolveAirportCode.
+ * Длинный текст в поле решается тремя способами сразу:
+ *   1) выбранный аэропорт хранится в короткой форме «Москва (SVO)»;
+ *   2) хвост, который всё же не поместился, обрезается многоточием (CSS);
+ *   3) при наведении мышью содержимое прокручивается до конца и обратно.
  *
- * @param {string}   value         текущее значение поля
- * @param {Function} onChange      (nextValue) => void
- * @param {string}   error         текст ошибки под полем
- * @param {string}   variant       "from" | "to" — определяет иконку в CSS
+ * @param {string}   value    текущее значение поля
+ * @param {Function} onChange (nextValue) => void
+ * @param {string}   error    текст ошибки под полем
+ * @param {string}   variant  "from" | "to" — определяет иконку в CSS
  */
 const AirportField = ({
                           id,
@@ -36,6 +65,7 @@ const AirportField = ({
 
     const rootRef = useRef(null);
     const inputRef = useRef(null);
+    const cancelScrollRef = useRef(null);
 
     // Список фильтруется по тому, что человек набрал. Исключение — уже выбранный
     // аэропорт в короткой форме «Москва (SVO)»: тогда показываем весь список,
@@ -43,6 +73,37 @@ const AirportField = ({
     const isPicked = /\([A-Za-z]{3}\)\s*$/.test(value || "");
     const query = isPicked ? "" : value;
     const items = useMemo(() => suggestAirports(query, 8), [query]);
+
+    const stopScroll = () => {
+        cancelScrollRef.current?.();
+        cancelScrollRef.current = null;
+    };
+
+    const resetScroll = () => {
+        stopScroll();
+        if (inputRef.current) inputRef.current.scrollLeft = 0;
+    };
+
+    const close = () => {
+        setIsOpen(false);
+        // Приводим ввод к короткой форме и возвращаем текст к началу строки:
+        // после набора длинного названия поле остаётся прокрученным вправо.
+        const normalized = normalizeAirportInput(value);
+        if (normalized !== value) onChange(normalized);
+        resetScroll();
+    };
+
+    const open = () => {
+        stopScroll();
+        setHighlighted(0);
+        setIsOpen(true);
+    };
+
+    const select = (airport) => {
+        onChange(airportShortLabel(airport));
+        setIsOpen(false);
+        resetScroll();
+    };
 
     useEffect(() => {
         if (!isOpen) return undefined;
@@ -55,24 +116,31 @@ const AirportField = ({
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [isOpen, value]);
 
-    const close = () => {
-        setIsOpen(false);
-        // Приводим ввод к короткой форме и возвращаем текст к началу строки:
-        // после набора длинного названия поле остаётся прокрученным вправо.
-        const normalized = normalizeAirportInput(value);
-        if (normalized !== value) onChange(normalized);
-        if (inputRef.current) inputRef.current.scrollLeft = 0;
+    useEffect(() => stopScroll, []);
+
+    /* --------------------- прокрутка длинного значения --------------------- */
+
+    const handleMouseEnter = () => {
+        const element = inputRef.current;
+        // Пока поле в фокусе, прокруткой управляет каретка — не мешаем.
+        if (!element || document.activeElement === element) return;
+
+        const overflow = element.scrollWidth - element.clientWidth;
+        if (overflow <= 1) return;
+
+        stopScroll();
+        if (window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) {
+            element.scrollLeft = overflow; // без анимации, сразу показываем хвост
+            return;
+        }
+        cancelScrollRef.current = animateScrollTo(element, overflow, 55);
     };
 
-    const open = () => {
-        setHighlighted(0);
-        setIsOpen(true);
-    };
-
-    const select = (airport) => {
-        onChange(airportShortLabel(airport));
-        setIsOpen(false);
-        if (inputRef.current) inputRef.current.scrollLeft = 0;
+    const handleMouseLeave = () => {
+        const element = inputRef.current;
+        if (!element || document.activeElement === element) return;
+        stopScroll();
+        cancelScrollRef.current = animateScrollTo(element, 0, 220);
     };
 
     const handleKeyDown = (event) => {
@@ -86,15 +154,19 @@ const AirportField = ({
         } else if (event.key === "Enter" && isOpen && items[highlighted]) {
             event.preventDefault(); // не отправляем форму, а выбираем пункт
             select(items[highlighted]);
-        } else if (event.key === "Escape") {
-            close();
-        } else if (event.key === "Tab") {
+        } else if (event.key === "Escape" || event.key === "Tab") {
             close();
         }
     };
 
     return (
-        <div className={`form-group ${variant}`} ref={rootRef} style={style}>
+        <div
+            className={`form-group ${variant}`}
+            ref={rootRef}
+            style={style}
+            onMouseEnter={handleMouseEnter}
+            onMouseLeave={handleMouseLeave}
+        >
             <label htmlFor={id}>{label}</label>
 
             <input
@@ -115,6 +187,7 @@ const AirportField = ({
                     if (!isOpen) open();
                 }}
                 onClick={open}
+                onFocus={stopScroll}
                 onKeyDown={handleKeyDown}
                 onBlur={(e) => {
                     // Клик по пункту списка или по иконке блюр не должен обрывать.
@@ -133,7 +206,8 @@ const AirportField = ({
                 onMouseDown={(e) => e.preventDefault()}
                 onClick={() => {
                     inputRef.current?.focus();
-                    isOpen ? close() : open();
+                    if (isOpen) close();
+                    else open();
                 }}
             />
 

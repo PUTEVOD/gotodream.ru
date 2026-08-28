@@ -1,679 +1,202 @@
+/* frontend/src/components/styles/SearchForm.css
+   ЕДИНСТВЕННЫЙ файл стилей формы поиска. Второй файл с этим именем
+   (components/s7/SearchForm.css) нужно удалить: два файла с одинаковым
+   именем — источник ошибок, при которых правка уходит в неподключённый файл.
+
+   Порядок разделов:
+     1. Переменные        6. Ошибки валидации
+     2. Шрифты            7. Кнопки формы
+     3. Сетка формы       8. Список аэропортов
+     4. Поле              9. Список пассажиров
+     5. Иконка поля      10. Состояния выдачи */
+
+/* ============================ 1. Переменные ============================ */
+
+.search-form {
+    --field-bg: #000000;
+    --field-height: clamp(64px, 8vh, 92px);
+    --text: #ffffff;
+    --text-muted: #c9c9c9;
+    --text-dim: #8f9a97;
+    --surface-raised: #2d2e3a;
+    --focus: #4a90e2;
+    --danger: #ff6b6b;
+    --radius: 16px;
+}
+
+/* ============================== 2. Шрифты ============================== */
+
+/* Пути указаны относительно ЭТОГО файла. Папка fonts лежит в src, отсюда
+   до неё два уровня вверх. Если файлы не найдены, применяется системный
+   шрифт из списка — вёрстка не ломается, меняется только начертание. */
+
 @font-face {
-    font-family: 'Inter-Bold';
-    src: local('Inter-Bold'), url(../fonts/Inter-Bold.ttf) format('truetype');
+    font-family: 'Inter-Light';
+    src: local('Inter Light'), url(../fonts/Inter-Light.ttf) format('truetype');
+    font-display: swap;
 }
 
 @font-face {
     font-family: 'Inter-Regular';
-    src: local('Inter-Regular'), url(../fonts/Inter-Regular.ttf) format('truetype');
+    src: local('Inter'), url(../fonts/Inter-Regular.ttf) format('truetype');
+    font-display: swap;
 }
 
 @font-face {
     font-family: 'Inter-SemiBold';
-    src: local('Inter-SemiBold'), url(../fonts/Inter-SemiBold.ttf) format('truetype');
+    src: local('Inter SemiBold'), url(../fonts/Inter-SemiBold.ttf) format('truetype');
+    font-display: swap;
 }
 
 @font-face {
-    font-family: 'Inter-Light';
-    src: local('Inter-Light'), url(../fonts/Inter-Light.ttf) format('truetype');
-}
-
-form {
-    display: grid;
-    grid-template-columns: 30% 5% 30% 5% ;
-    grid-template-rows: 20% 30% 20%;
-    /*grid-column: 1 / 6;*/
-    /*grid-row: 1 / 5;*/
-    /*height: 100vh;*/
-}
-
-input[type="date"]::-webkit-calendar-picker-indicator {
-    display: none;
-}
-
-@keyframes slideDown {
-    from {
-        transform: translateY(-25%);
-        opacity: 0;
-    }
-    to {
-        transform: translateY(0);
-        opacity: 1;
-    }
-}
-
-.form-group {
-    cursor: pointer;
-    position: relative;
-    /*background: #1e1f28;*/
-    background: #000000;
-    /*border: 1px solid #afafaf;*/
-    border-radius: 16px;
-}
-
-/*.form-group:nth-child(1) {*/
-/*    !*animation: slideDown 0.2s ease-out forwards;*!*/
-/*    grid-column: 1 / 2;*/
-/*    grid-row: 1 / 2;*/
-/*}*/
-
-/*.form-group:nth-child(2) {*/
-/*    !*animation: slideDown 0.4s ease-out forwards;*!*/
-/*    grid-column: 3 / 4;*/
-/*    grid-row: 1 / 2;*/
-/*}*/
-
-.form-group:nth-child(3) {
-    /*animation: slideDown 0.6s ease-out forwards;*/
-    grid-column: 1 / 2;
-    grid-row: 3 / 4;
-}
-
-.form-group:nth-child(4) {
-    /*animation: slideDown 0.8s ease-out forwards;*/
-    grid-column: 3 / 4;
-    grid-row: 3 / 4;
-}
-
-.form-group:nth-child(6) {
-    /*animation: slideDown 1.0s ease-out forwards;*/
-    grid-column: 5 / 6;
-    grid-row: 1 / 2;
-}
-
-.search-button {
-    /*animation: slideDown 1.2s ease-out forwards;*/
-    grid-column: 5 / 6;
-    grid-row: 3 / 4;
-    background: #000;
-    border-radius: 16px;
-    font-family: 'Inter-SemiBold', serif;
-    font-size: 20pt;
-    /*color: #131416;*/
-    color: #fff;
-    height: 10vh;
-    margin: 5px 0px;
-    padding: 10px;
-    /*border: 3px solid #161c2c;*/
-    cursor: pointer;
-    transition: background 0.3s;
-}
-
-.search-button:hover{
-    background: #8a8a8a;
-}
-
-/*.form-group label {*/
-/*    position: absolute;*/
-/*    top: 16px;*/
-/*    left: 20px;*/
-/*    font-family: 'Inter-Bold';*/
-/*    font-size: 10pt;*/
-/*    color: #c9c9c9;*/
-/*}*/
-
-.form-group input, .passenger-input {
-    position: absolute;
-    top: 60%;
-    left: 5%;
-    background: none;
-    border: none;
-    font-family: 'Inter-Light', serif;
-    font-size: 14pt;
-    color: #ffffff;
-    outline: none;
-    width: calc(100% - 100px);
-}
-
-/*.form-group::after {*/
-/*    content: '';*/
-/*    position: absolute;*/
-/*    right: 20px;*/
-/*    top: 50%;*/
-/*    transform: translateY(-50%);*/
-/*    width: 70px;*/
-/*    height: 70px;*/
-/*    !*background: #f2f2f4;*!*/
-/*    border-radius: 8px;*/
-/*}*/
-
-
-
-/*.form-group:hover{*/
-/*    border: 1px solid #afafaf;*/
-/*    !*border: 1px solid transparent; !* Устанавливаем прозрачный бордер *!*!*/
-/*    !*border-image: linear-gradient(90deg, #86a67d, #feb54e, #f65447) 1;*!*/
-/*    border-radius: 16px; !* Скругление углов *!*/
-/*}*/
-
-
-/* Скрываем placeholder при фокусе */
-.form-group input:focus::placeholder {
-
-    outline: none;
-    color: transparent;
-}
-
-/* Индивидуальные иконки */
-.form-group.from::after {
-    background-image: url(../assets/icons/departure.png);
-}
-
-.form-group.to::after {
-    background-image: url(../assets/icons/arrival.png);
-}
-
-.form-group.date::after{
-    background-image: url(../assets/icons/calender.png);
-}
-
-.form-group.passengers::after {
-    background-image: url(../assets/icons/passengers.png);
-}
-
-
-/* Дополнительные стили для модального окна и ссылок */
-.form-title {
-    color: white;
-    font-family: 'Inter-Bold', serif;
-    margin-bottom: 2%;
-}
-
-.form-links {
-    position: fixed;
-    bottom: 5%;
-    left: 50%;
-    transform: translateX(-50%);
-    display: flex;
-    gap: 30px;
-}
-
-.form-link {
-    color: white;
-    text-decoration: none;
-    font-family: 'Inter-Regular', serif;
-}
-
-.passenger-dropdown {
-    color: #ffffff;
-    font-family: Inter-Light, serif !important;
-    position: absolute;
-    /*background: #1e1f28;*/
-    background: #000000;
-    border-radius: 16px;
-    padding: 20px;
-    z-index: 1000;
-}
-input[type="checkbox"],
-input[type="radio"] {
-    -webkit-appearance: none;
-    -moz-appearance: none;
-    appearance: none;
-    outline: none;
-    margin: 0;
-    padding: 0;
-}
-
-/*.form-group.date:nth-child(4) { !* 4-й элемент — поле возвращения *!*/
-/*    display: none !important;*/
-/*}*/
-/*.........................................................................................................*/
-/* Стили для сложного маршрута */
-/* Анимация появления */
-/*@keyframes slideDown {*/
-/*    from {*/
-/*        opacity: 0;*/
-/*        transform: translateY(-10px);*/
-/*    }*/
-/*    to {*/
-/*        opacity: 1;*/
-/*        transform: translateY(0);*/
-/*    }*/
-/*}*/
-
-.flight-segment {
-    display: contents;
-}
-
-/* Контейнер для всей формы сложного маршрута */
-.complex-form {
-    display: grid;
-    grid-template-rows: auto;
-    row-gap: .2vh;
-}
-
-/* Контейнер для всех рейсов */
-.flights-container {
-    display: grid;
-    grid-auto-rows: 80px; /* Фиксированная высота строк */
-    gap: 10px;
-}
-/*.form-group {*/
-/*    height: 80px; !* Фиксированная высота *!*/
-/*    min-height: 80px;*/
-/*    position: relative;*/
-/*    background: #1e1f28;*/
-/*    border-radius: 16px;*/
-/*    padding: 10px;*/
-/*    margin: 5px 0; !* Единые отступы *!*/
-/*}*/
-/*!* Убедитесь что все псевдоэлементы не влияют на высоту *!*/
-/*.form-group::after {*/
-/*    height: 60px;*/
-/*    width: 60px;*/
-/*}*/
-
-/* Каждый рейс – отдельная строка */
-/*.flight-row {*/
-/*    display: grid;*/
-/*    !* Задаём 5 колонок, где:*/
-/*       1-я колонка - поле "Откуда",*/
-/*       3-я - "Куда",*/
-/*       5-я - "Дата".*/
-/*       Остальные колонки можно оставить пустыми для отступов *!*/
-/*    grid-template-columns: 30% 5% 30% 5% 30%;*/
-/*    align-items: center; !* Вертикальное выравнивание по центру *!*/
-/*}*/
-.flight-row {
-    display: grid;
-    grid-template-columns: 30% 5% 30% 5% 30% 5%;
-    position: relative;
-}
-/* Расположение полей внутри строки */
-.flight-from {
-    grid-column: 1;
-}
-/* Добавьте фиксированную высоту для каждой строки с полями */
-.flight-row, .form-group {
-    height: 8vh;
-    min-height: 8vh;
-}
-.flight-to {
-    grid-column: 3;
-}
-
-.flight-date {
-    grid-column: 5;
-}
-
-/* Кнопка удаления рейса (если нужна) – можно разместить, например, в 6-й колонке, если добавите её в разметке */
-/*.remove-flight {*/
-/*    background: transparent;*/
-/*    border: none;*/
-/*    font-size: 50px;*/
-/*    color: #000000;*/
-/*    cursor: pointer;*/
-/*}*/
-.remove-flight {
-    position: absolute;
-    right: -3%;       /* Отступ от правого края поля даты */
-    top: 3%;          /* Центрирование по вертикали */
-    transform: translateY(-50%);
-    background: none;
-    border: none;
-    color: #000000;
-    cursor: pointer;
-    font-size: 40px;
-    padding: 0;
-    z-index: 2;        /* Чтобы крестик был поверх других элементов */
-}
-.flights-container {
-    grid-template-columns: 30% 5% 30% 5% 30% 5%;
-}
-.form-group.from,
-.form-group.to,
-.form-group.date {
-    min-width: 0; /* Позволяет сжимать контент внутри */
-}
-/* Кнопка добавления рейса – растянута по всем колонкам или по отдельной настройке */
-.add-flight {
-    grid-column: 1 / -1;
-    background: #000000;
-    border-radius: 16px;
-    color: #ffffff;
     font-family: 'Inter-Bold';
-    font-size: 16pt;
-    cursor: pointer;
-    padding: 10px;
-    margin: 10px 0;
+    src: local('Inter Bold'), url(../fonts/Inter-Bold.ttf) format('truetype');
+    font-display: swap;
 }
 
-/* Нижний блок – поле пассажиров */
-.passengers-row {
+/* =========================== 3. Сетка формы ============================ */
+
+/* Колонки: поле — зазор — поле — зазор — поле.
+   Строки и колонки каждого элемента задаются в JSX через gridColumn/gridRow.
+   Раньше положение зависело от :nth-child, и добавление любого узла
+   (например, текста ошибки) сдвигало всю форму. */
+.search-form form {
     display: grid;
     grid-template-columns: 30% 5% 30% 5% 30%;
-    height: 60px;
+    align-items: start;
 }
 
-.passengers-row .passengers {
-    grid-column: 5;
-    height: 100%;
+.complex-form {
+    row-gap: 4px;
 }
 
-/* Нижний блок – кнопка поиска */
-.search-row {
-    display: grid;
-    grid-template-columns: 30% 5% 30% 5% 30%;
-    height: 60px;
-}
+/* ============================== 4. Поле ================================ */
 
-/*.search-row .search-button {*/
-/*    grid-column: 5;*/
-/*    height: 100%;*/
-/*    background: #ffffff;*/
-/*    border-radius: 16px;*/
-/*    font-family: 'Inter-SemiBold', serif;*/
-/*    font-size: 20pt;*/
-/*    color: #131416;*/
-/*    cursor: pointer;*/
-/*    transition: background 0.3s;*/
-/*}*/
-
-/* Общие стили для полей */
 .form-group {
     position: relative;
-    background: #000000;
-    /*background: #1e1f28;*/
-    border-radius: 16px;
+    height: var(--field-height);
     padding: 10px;
     margin: 5px 0;
+    background: var(--field-bg);
+    border-radius: var(--radius);
+    min-width: 0;
 }
-.form-group, .passengers, .search-button{
-    /*animation: slideDown 1.2s ease-out forwards;*/
-}
+
 .form-group label {
     position: absolute;
-    top: 25%;
+    top: 22%;
     left: 5%;
-    font-family: 'Inter-Light', serif;
+    color: var(--text-muted);
+    font-family: 'Inter-Light', system-ui, sans-serif;
     font-size: 12pt;
-    color: #c9c9c9;
-}
-
-.form-group input {
-    position: absolute;
-    top: 60%;
-    left: 5%;
-    background: none;
-    border: none;
-    font-family: 'Inter-Light', serif;
-    font-size: 14pt;
-    color: #ffffff;
-    width: calc(100% - 100px);
-}
-.form-group::after {
-    content: ""; /* Обязательно для псевдоэлемента */
-    display: block;
-    width: 20%; /* Укажите нужный размер */
-    height: 70%;
-    background-repeat: no-repeat;
-    background-position: center;
-    background-size: contain; /* Масштабирует иконку, сохраняя пропорции */
-    position: absolute; /* Нужно для позиционирования */
-    right: 5%; /* Регулируйте положение */
-    top: 50%;
-    transform: translateY(-50%);
-}
-
-/* Стили для неактивных полей */
-.form-group input:disabled {
-    opacity: 0.5 !important;
-    background: #2a2b35 !important;
-    cursor: not-allowed;
-}
-
-/* Затемнение label при неактивном поле */
-.form-group input:disabled + label {
-    opacity: 0.5;
-}
-
-
-
-/* Добавляем в конец файла */
-
-/* Стили для модального окна пассажиров */
-.passenger-dropdown {
-    position: absolute;
-    top: calc(100% + 10px);
-    left: 0;
-    width: 400px;
-    background: #000000;
-    /*background: #1e1f28;*/
-    border-radius: 16px;
-    padding: 20px;
-    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
-    z-index: 1000;
-    animation: slideDown 0.3s ease-out forwards;
-}
-
-.passenger-content {
-    display: flex;
-    flex-direction: column;
-    gap: 20px;
-}
-
-.passenger-category {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding-bottom: 20px;
-    border-bottom: 1px solid #2d2e3a;
-}
-
-.passenger-label {
-    flex: 1;
-}
-
-.category-title {
-    font-family: 'Inter-SemiBold';
-    font-size: 18px;
-    color: #ffffff;
-    margin-bottom: 5px;
-}
-
-.category-description {
-    font-family: 'Inter-Light';
-    font-size: 15px;
-    color: #afafaf;
-    line-height: 1.4;
-}
-
-.passenger-controls {
-    display: flex;
-    align-items: center;
-    gap: 15px;
-}
-
-.control-btn {
-    width: 48px;
-    height: 48px;
-    border-radius: 50%;
-    background: #2d2e3a;
-    color: #ffffff;
-    border: none;
-    font-size: 18px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    cursor: pointer;
-    transition: background 0.2s;
-}
-
-.control-btn:hover {
-    background: #3d3e4a;
-}
-
-.control-btn:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
-}
-
-.passenger-value {
-    /*font-family: 'Inter-SemiBold';*/
-    font-size: 16px;
-    color: #ffffff;
-    min-width: 20px;
-    text-align: center;
-}
-
-.tariff-section {
-    padding-top: 10px;
-}
-
-.tariff-title {
-    /*font-family: 'Inter-SemiBold';*/
-    font-size: 18px;
-    color: #ffffff;
-    margin-bottom: 5px;
-}
-
-.tariff-description {
-    /*font-family: 'Inter-Light';*/
-    font-size: 15px;
-    color: #afafaf;
-    margin-bottom: 10px;
-}
-
-.tariff-link {
-    /*font-family: 'Inter-Regular';*/
-    font-size: 12px;
-    color: #4a90e2;
-    text-decoration: none;
-    display: inline-block;
-    transition: color 0.2s;
-}
-
-.tariff-link:hover {
-    color: #6aa8ff;
-    text-decoration: underline;
-}
-
-/* Анимация выпадающего меню */
-@keyframes slideDown {
-    from {
-        opacity: 0;
-        transform: translateY(-10px);
-    }
-    to {
-        opacity: 1;
-        transform: translateY(0);
-    }
-}
-
-/* Улучшаем позиционирование для сложного маршрута */
-.complex-form .form-group.passengers {
-    position: relative;
-}
-
-.complex-form .passenger-dropdown {
-    left: 0;
-    right: 0;
-    width: auto;
-}
-
-
-/* ---------- ошибки валидации ---------- */
-
-.field-error {
-    position: absolute;
-    left: 5%;
-    bottom: -18px;
-    font-family: 'Inter-Light', serif;
-    font-size: 11pt;
-    color: #ff6b6b;
-    white-space: nowrap;
     pointer-events: none;
 }
 
-.form-group input[aria-invalid="true"] {
-    box-shadow: inset 0 -2px 0 #ff6b6b;
-}
-
-.form-summary-error {
-    color: #ff6b6b;
-    font-family: 'Inter-Light', serif;
-    font-size: 12pt;
-    padding: 8px 0;
-}
-
-/* ---------- кнопка «поменять местами» между Откуда и Куда ---------- */
-
-.swap-direction {
-    align-self: center;
-    justify-self: center;
-    background: none;
-    border: none;
-    padding: 0;
-    color: #c9c9c9;
-    font-size: 22pt;
-    line-height: 1;
-    cursor: pointer;
-    transition: color .2s ease, transform .3s ease;
-}
-
-.swap-direction:hover {
-    color: #ffffff;
-    transform: rotate(180deg);
-}
-
-.swap-direction:focus-visible {
-    outline: 2px solid #4a90e2;
-    outline-offset: 4px;
-    border-radius: 8px;
-}
-
-/* ---------- поля: текст, фокус, ширина ---------- */
-
-/* Текст не заезжает под иконку (она занимает 20% справа плюс отступ 5%),
-   вне фокуса лишнее скрывается многоточием, в фокусе работает прокрутка. */
+/* Ширина 68% оставляет место под иконку: та занимает 20% плюс отступ 5%.
+   text-overflow показывает многоточие, когда текст длиннее поля;
+   плавную прокрутку при наведении делает AirportField.jsx. */
 .form-group input,
 .passenger-input {
-    width: 68%;
-    text-overflow: ellipsis;
-}
-
-/* Поле пассажиров стало <button> — снимаем стили кнопки. */
-.passenger-input {
-    /* Положение дублируется намеренно: не полагаемся на то, что
-       .passenger-input перечислен в правиле выше по файлу. */
     position: absolute;
-    top: 60%;
+    top: 58%;
     left: 5%;
-    display: block;
+    width: 68%;
     padding: 0;
-    text-align: left;
     background: none;
     border: none;
     outline: none;
-    color: #ffffff;
-    font-family: 'Inter-Light', serif;
+    color: var(--text);
+    font-family: 'Inter-Light', system-ui, sans-serif;
     font-size: 14pt;
+    text-overflow: ellipsis;
+}
+
+.form-group input::placeholder {
+    color: var(--text-dim);
+}
+
+.form-group input:focus::placeholder {
+    color: transparent;
+}
+
+/* Нативную иконку календаря убираем: её роль выполняет .field-icon,
+   которая открывает тот же диалог через showPicker(). */
+.form-group input[type="date"]::-webkit-calendar-picker-indicator {
+    display: none;
+}
+
+/* Поле пассажиров — <button>, чтобы работали клавиатура и screen reader. */
+.passenger-input {
+    display: block;
+    text-align: left;
     cursor: pointer;
 }
 
-.passenger-input:focus-visible,
-.form-group input:focus-visible {
-    outline: 2px solid #4a90e2;
+.form-group input:focus-visible,
+.passenger-input:focus-visible {
+    outline: 2px solid var(--focus);
     outline-offset: 4px;
     border-radius: 4px;
 }
 
-/* Поле с открытым списком перекрывает соседние строки формы. */
+.form-group input:disabled {
+    opacity: .5;
+    cursor: not-allowed;
+}
+
+/* Поле с открытым списком должно перекрывать соседние строки формы. */
 .form-group:focus-within,
 .form-group.passengers {
     z-index: 20;
 }
 
-/* ---------- прозрачная кнопка поверх иконки поля ---------- */
+/* =========================== 5. Иконка поля ============================ */
 
-/* Иконка нарисована псевдоэлементом .form-group::after и кликов не получает.
-   Кнопка кладётся ровно поверх неё, теми же размерами и в том же месте. */
+/* Иконки нарисованы прямо в стилях (SVG в виде data-URI) и не зависят от
+   внешних файлов: раньше здесь стояли пути вида X:/Projects/..., поэтому
+   на любом другом компьютере иконки не загружались.
+   Чтобы вернуть свои картинки, замените background-image на url(...). */
+.form-group::after {
+    content: "";
+    position: absolute;
+    right: 5%;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 20%;
+    height: 60%;
+    max-width: 34px;
+    background-repeat: no-repeat;
+    background-position: center;
+    background-size: contain;
+    opacity: .75;
+    pointer-events: none;
+}
+
+.form-group.from::after {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23c9c9c9' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M3 21h18'/%3E%3Cpath d='M4 14.5 2.9 9.6a.7.7 0 0 1 1-.8l2.4 1.2 3-1.5-2.8-3.9a.7.7 0 0 1 .7-1.1l1.6.3 4.7 4 3.4-1.7a2 2 0 0 1 1.8 3.6L7 16.6a2 2 0 0 1-1.6.1z'/%3E%3C/svg%3E");
+}
+
+.form-group.to::after {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23c9c9c9' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M3 21h18'/%3E%3Cpath d='M20.4 15.6l-4.6-2.1-1.2-5.6a.7.7 0 0 0-1.2-.3l-1 1.3.4 3.3-3.2-1.5-.9-2.3a.7.7 0 0 0-1.3.2l-.3 2.5a2 2 0 0 0 1.1 2l10.4 4.7a2 2 0 0 0 1.8-3.6z'/%3E%3C/svg%3E");
+}
+
+.form-group.date::after {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23c9c9c9' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='3' y='5' width='18' height='16' rx='2.5'/%3E%3Cpath d='M3 10h18M8 3v4M16 3v4'/%3E%3C/svg%3E");
+}
+
+.form-group.passengers::after {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23c9c9c9' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='12' cy='8' r='3.4'/%3E%3Cpath d='M5 20c0-3.7 3.1-6.2 7-6.2s7 2.5 7 6.2'/%3E%3C/svg%3E");
+}
+
+/* Псевдоэлемент не может быть целью клика отдельно от родителя, поэтому
+   поверх него лежит настоящая прозрачная кнопка тех же размеров. */
 .form-group .field-icon {
     position: absolute;
     right: 5%;
     top: 50%;
     transform: translateY(-50%);
     width: 20%;
+    max-width: 34px;
     height: 70%;
     margin: 0;
     padding: 0;
@@ -684,27 +207,140 @@ input[type="radio"] {
 }
 
 .form-group .field-icon:focus-visible {
-    outline: 2px solid #4a90e2;
+    outline: 2px solid var(--focus);
     outline-offset: 2px;
     border-radius: 8px;
 }
 
-/* ---------- выпадающий список аэропортов ---------- */
+/* ========================= 6. Ошибки валидации ========================= */
+
+.field-error {
+    position: absolute;
+    left: 5%;
+    bottom: -18px;
+    color: var(--danger);
+    font-family: 'Inter-Light', system-ui, sans-serif;
+    font-size: 11pt;
+    white-space: nowrap;
+    pointer-events: none;
+}
+
+.form-group input[aria-invalid="true"] {
+    box-shadow: inset 0 -2px 0 var(--danger);
+}
+
+.form-summary-error {
+    padding: 8px 0;
+    color: var(--danger);
+    font-family: 'Inter-Light', system-ui, sans-serif;
+    font-size: 12pt;
+}
+
+/* =========================== 7. Кнопки формы =========================== */
+
+.search-button {
+    height: clamp(64px, 10vh, 110px);
+    margin: 5px 0;
+    padding: 10px;
+    background: var(--field-bg);
+    border: none;
+    border-radius: var(--radius);
+    color: var(--text);
+    font-family: 'Inter-Light', system-ui, sans-serif;
+    font-size: 20pt;
+    cursor: pointer;
+    transition: background .3s;
+}
+
+.search-button:hover:not(:disabled) {
+    background: #8a8a8a;
+}
+
+.search-button:disabled {
+    opacity: .6;
+    cursor: progress;
+}
+
+.add-flight {
+    margin: 10px 0;
+    padding: 10px;
+    background: var(--field-bg);
+    border: none;
+    border-radius: var(--radius);
+    color: var(--text);
+    font-family: 'Inter-SemiBold', system-ui, sans-serif;
+    font-size: 16pt;
+    cursor: pointer;
+}
+
+.add-flight:disabled {
+    opacity: .5;
+    cursor: not-allowed;
+}
+
+/* Крестик удаления перелёта в сложном маршруте. */
+.remove-flight {
+    position: absolute;
+    right: -3%;
+    top: 0;
+    padding: 0;
+    background: none;
+    border: none;
+    color: var(--text-muted);
+    font-size: 32px;
+    line-height: 1;
+    cursor: pointer;
+    z-index: 4;
+}
+
+.remove-flight:hover {
+    color: var(--danger);
+}
+
+/* Кнопка «поменять местами» между полями «Откуда» и «Куда». */
+.swap-direction {
+    align-self: center;
+    justify-self: center;
+    padding: 0;
+    background: none;
+    border: none;
+    color: var(--text-muted);
+    font-size: 22pt;
+    line-height: 1;
+    cursor: pointer;
+    transition: color .2s ease, transform .3s ease;
+}
+
+.swap-direction:hover {
+    color: var(--text);
+    transform: rotate(180deg);
+}
+
+.swap-direction:focus-visible,
+.add-flight:focus-visible,
+.search-button:focus-visible,
+.remove-flight:focus-visible {
+    outline: 2px solid var(--focus);
+    outline-offset: 4px;
+    border-radius: 8px;
+}
+
+/* ========================= 8. Список аэропортов ======================== */
 
 .airport-suggestions {
     position: absolute;
     top: calc(100% + 8px);
     left: 0;
     right: 0;
+    max-height: 320px;
     margin: 0;
     padding: 8px;
-    list-style: none;
-    background: #000000;
-    border: 1px solid #2d2e3a;
-    border-radius: 16px;
-    box-shadow: 0 10px 30px rgba(0, 0, 0, .6);
-    max-height: 320px;
     overflow-y: auto;
+    list-style: none;
+    background: var(--field-bg);
+    border: 1px solid var(--surface-raised);
+    border-radius: var(--radius);
+    box-shadow: 0 10px 30px rgba(0, 0, 0, .6);
     z-index: 1000;
     animation: slideDown .18s ease-out forwards;
 }
@@ -722,21 +358,21 @@ input[type="radio"] {
     background: none;
     border: none;
     border-radius: 10px;
-    color: #ffffff;
-    font-family: 'Inter-Light', serif;
+    color: var(--text);
+    font-family: 'Inter-Light', system-ui, sans-serif;
     font-size: 15px;
     text-align: left;
     cursor: pointer;
 }
 
 .airport-option.is-highlighted {
-    background: #2d2e3a;
+    background: var(--surface-raised);
 }
 
 .airport-option__code {
     flex: 0 0 auto;
     min-width: 3.2ch;
-    color: #8f9a97;
+    color: var(--text-dim);
     font-size: 13px;
     letter-spacing: .06em;
 }
@@ -744,29 +380,120 @@ input[type="radio"] {
 .airport-option__name {
     flex: 1 1 auto;
     overflow: hidden;
-    text-overflow: ellipsis;
     white-space: nowrap;
+    text-overflow: ellipsis;
 }
 
 .airport-suggestions--empty {
     padding: 14px 16px;
-    color: #afafaf;
-    font-family: 'Inter-Light', serif;
+    color: var(--text-muted);
+    font-family: 'Inter-Light', system-ui, sans-serif;
     font-size: 14px;
     line-height: 1.4;
 }
 
-/* ---------- класс обслуживания внутри списка пассажиров ---------- */
+/* ========================= 9. Список пассажиров ======================== */
 
-/* Выше по файлу есть «.form-group label { position: absolute; top: 25% }».
-   Селектор описывает ЛЮБОЙ label внутри поля, включая те, что лежат
-   в выпадающем списке, — из-за этого подпись «Класс обслуживания» улетала
-   наверх поля. Возвращаем таким подписям нормальный поток. */
+.passenger-dropdown {
+    position: absolute;
+    top: calc(100% + 10px);
+    left: 0;
+    width: 400px;
+    max-width: 90vw;
+    padding: 20px;
+    background: var(--field-bg);
+    border: 1px solid var(--surface-raised);
+    border-radius: var(--radius);
+    box-shadow: 0 10px 30px rgba(0, 0, 0, .5);
+    color: var(--text);
+    font-family: 'Inter-Light', system-ui, sans-serif;
+    z-index: 1000;
+    animation: slideDown .25s ease-out forwards;
+}
+
+.complex-form .passenger-dropdown {
+    left: auto;
+    right: 0;
+}
+
+.passenger-content {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+.passenger-category {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding-bottom: 20px;
+    border-bottom: 1px solid var(--surface-raised);
+}
+
+.passenger-label {
+    flex: 1;
+}
+
+.category-title {
+    margin-bottom: 5px;
+    color: var(--text);
+    font-family: 'Inter-SemiBold', system-ui, sans-serif;
+    font-size: 18px;
+}
+
+.category-description {
+    color: #afafaf;
+    font-size: 15px;
+    line-height: 1.4;
+}
+
+.passenger-controls {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+}
+
+.control-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 48px;
+    height: 48px;
+    background: var(--surface-raised);
+    border: none;
+    border-radius: 50%;
+    color: var(--text);
+    font-size: 18px;
+    cursor: pointer;
+    transition: background .2s;
+}
+
+.control-btn:hover:not(:disabled) {
+    background: #3d3e4a;
+}
+
+.control-btn:disabled {
+    opacity: .5;
+    cursor: not-allowed;
+}
+
+.passenger-value {
+    min-width: 20px;
+    color: var(--text);
+    font-size: 16px;
+    font-variant-numeric: tabular-nums;
+    text-align: center;
+}
+
+/* Подписи внутри выпадающих окон не должны подчиняться правилу
+   «.form-group label { position: absolute }» — иначе они улетают
+   к верхнему краю поля. */
 .form-group .passenger-dropdown label,
 .form-group .airport-suggestions label {
     position: static;
     top: auto;
     left: auto;
+    pointer-events: auto;
 }
 
 .cabin-class-block {
@@ -775,35 +502,116 @@ input[type="radio"] {
     justify-content: space-between;
     gap: 16px;
     padding-bottom: 20px;
-    border-bottom: 1px solid #2d2e3a;
+    border-bottom: 1px solid var(--surface-raised);
 }
 
 .cabin-class-select {
-    background: #2d2e3a;
-    color: #ffffff;
+    padding: 10px 14px;
+    background: var(--surface-raised);
     border: none;
     border-radius: 12px;
-    padding: 10px 14px;
-    font-family: 'Inter-Light', serif;
+    color: var(--text);
+    font-family: 'Inter-Light', system-ui, sans-serif;
     font-size: 15px;
     cursor: pointer;
 }
 
-.cabin-class-select:focus-visible {
-    outline: 2px solid #4a90e2;
+.cabin-class-select:focus-visible,
+.control-btn:focus-visible {
+    outline: 2px solid var(--focus);
     outline-offset: 2px;
 }
 
-/* ---------- прочее ---------- */
-
-.search-button:disabled {
-    opacity: .6;
-    cursor: progress;
+.tariff-section {
+    padding-top: 10px;
 }
 
-.add-flight:disabled {
-    opacity: .5;
-    cursor: not-allowed;
+.tariff-title {
+    margin-bottom: 5px;
+    color: var(--text);
+    font-size: 18px;
+}
+
+.tariff-description {
+    margin-bottom: 10px;
+    color: #afafaf;
+    font-size: 15px;
+}
+
+.tariff-link {
+    display: inline-block;
+    color: var(--focus);
+    font-size: 12px;
+    text-decoration: none;
+    transition: color .2s;
+}
+
+.tariff-link:hover {
+    color: #6aa8ff;
+    text-decoration: underline;
+}
+
+/* ========================= 10. Состояния выдачи ======================== */
+
+.search-state {
+    padding: 24px;
+    color: var(--text-muted);
+    font-family: 'Inter-Light', system-ui, sans-serif;
+    font-size: 14pt;
+    text-align: center;
+}
+
+.search-state--error {
+    color: var(--danger);
+}
+
+.retry-button {
+    display: inline-block;
+    margin-left: 12px;
+    padding: 8px 16px;
+    background: var(--surface-raised);
+    border: none;
+    border-radius: 12px;
+    color: var(--text);
+    cursor: pointer;
+}
+
+/* ============================ Вспомогательное ========================== */
+
+@keyframes slideDown {
+    from {
+        opacity: 0;
+        transform: translateY(-10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .airport-suggestions,
+    .passenger-dropdown {
+        animation: none;
+    }
+
+    .swap-direction {
+        transition: none;
+    }
+}
+
+/* Сброс вида галочек и радиокнопок. По смыслу правило относится к фильтрам
+   страницы поиска и его место — в FiltersSearchAir.css. Оставлено здесь,
+   потому что оно было в исходном файле и на него опираются классы
+   .checkmark / .radiomark: перенос без правки FiltersSearchAir.css вернёт
+   стандартные системные галочки рядом с нарисованными. */
+input[type="checkbox"],
+input[type="radio"] {
+    -webkit-appearance: none;
+    appearance: none;
+    margin: 0;
+    padding: 0;
+    outline: none;
 }
 
 .visually-hidden {
@@ -813,28 +621,4 @@ input[type="radio"] {
     overflow: hidden;
     clip: rect(0 0 0 0);
     white-space: nowrap;
-}
-
-/* Состояния выдачи на странице поиска (S7.jsx) */
-.search-state {
-    color: #c9c9c9;
-    font-family: 'Inter-Light', serif;
-    font-size: 14pt;
-    padding: 24px;
-    text-align: center;
-}
-
-.search-state--error {
-    color: #ff6b6b;
-}
-
-.retry-button {
-    display: inline-block;
-    margin-left: 12px;
-    background: #2d2e3a;
-    color: #ffffff;
-    border: none;
-    border-radius: 12px;
-    padding: 8px 16px;
-    cursor: pointer;
 }

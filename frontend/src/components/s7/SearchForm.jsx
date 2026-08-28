@@ -1,7 +1,8 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import "./SearchForm.css";
+import "../styles/SearchForm.css";
 import PassengerSelector from "./PassengerSelector";
 import AirportField from "./AirportField";
+import DateField from "./DateField";
 import {
     TRIP_TYPES,
     CABIN_CLASSES,
@@ -26,55 +27,6 @@ function pluralPassengers(n) {
     if (mod10 >= 2 && mod10 <= 4) return `${n} пассажира`;
     return `${n} пассажиров`;
 }
-
-/**
- * Поле даты с кликабельной иконкой.
- * showPicker() — штатный способ открыть системный календарь из кода
- * (Chrome 99+, Edge, Safari 16+, Firefox 101+). Где его нет, поле просто
- * получает фокус, и календарь открывается по клику пользователя.
- */
-const DateField = ({ id, label, value, onChange, min, max, error, style, children }) => {
-    const inputRef = useRef(null);
-
-    const openPicker = () => {
-        const el = inputRef.current;
-        if (!el) return;
-        el.focus();
-        if (typeof el.showPicker === "function") {
-            try {
-                el.showPicker();
-            } catch {
-                /* браузер запретил вызов вне пользовательского жеста — остаётся фокус */
-            }
-        }
-    };
-
-    return (
-        <div className="form-group date" style={style}>
-            <label htmlFor={id}>{label}</label>
-            <input
-                id={id}
-                ref={inputRef}
-                type="date"
-                value={value}
-                min={min}
-                max={max}
-                aria-invalid={Boolean(error)}
-                onChange={(e) => onChange(e.target.value)}
-            />
-            <button
-                type="button"
-                className="field-icon"
-                tabIndex={-1}
-                aria-label={`${label}: открыть календарь`}
-                onMouseDown={(e) => e.preventDefault()}
-                onClick={openPicker}
-            />
-            {children}
-            {error && <div className="field-error">{error}</div>}
-        </div>
-    );
-};
 
 /**
  * Форма поиска рейсов.
@@ -136,8 +88,6 @@ const SearchForm = ({ onSearch, tripType = TRIP_TYPES.ROUND_TRIP, isSubmitting =
 
     /* --------------------------- изменения полей --------------------------- */
 
-    // Иммутабельно: старый код писал newSegments[i][field] = value, то есть
-    // мутировал объект, лежащий в state, — React не видит такое изменение.
     const updateSegment = useCallback((index, field, value) => {
         setSegments((prev) => prev.map((s, i) => (i === index ? { ...s, [field]: value } : s)));
     }, []);

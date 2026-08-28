@@ -60,7 +60,7 @@ export function resolveAirportCode(input) {
     return null;
 }
 
-/** Подсказки для datalist по подстроке. */
+/** Подсказки по подстроке: код, город или название аэропорта. */
 export function suggestAirports(query, limit = 8) {
     const q = String(query || "").trim().toLowerCase();
     if (!q) return AIRPORTS.slice(0, limit);

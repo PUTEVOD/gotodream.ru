@@ -28,7 +28,29 @@ export const CABIN_CLASS_BY_LABEL = Object.fromEntries(
     Object.entries(CABIN_CLASS_LABELS).map(([value, label]) => [label.toLowerCase(), value])
 );
 
+export const TRIP_TYPE_LABELS = {
+    [TRIP_TYPES.ONE_WAY]: "В одну сторону",
+    [TRIP_TYPES.ROUND_TRIP]: "Туда и обратно",
+    [TRIP_TYPES.COMPLEX]: "Сложный маршрут",
+};
+
 export const SORT_TYPES = ["cheapest", "fastest", "convenient"];
+
+export const SORT_LABELS = {
+    cheapest: "Самый дешёвый",
+    fastest: "Самый быстрый",
+    convenient: "Самый удобный",
+};
+
+export const STOPS_OPTIONS = [
+    { value: 0, label: "Без пересадок" },
+    { value: 1, label: "1 пересадка" },
+    { value: 2, label: "2 пересадки" },
+];
+
+/* Список авиакомпаний временно задан здесь. Правильное место — ответ сервера:
+   фильтр должен показывать те компании, что реально есть в текущей выдаче. */
+export const AIRLINES = ["S7 Airlines", "Аэрофлот", "Уральские авиалинии"];
 
 export const PASSENGER_TYPES = [
     {
@@ -233,8 +255,16 @@ export function buildFilters({
     if (selectedAirlines?.length) filters.airlines = selectedAirlines;
 
     if (selectedClasses?.length) {
+        // Фильтр хранит значения контракта ("economy"). Русские подписи
+        // принимаются тоже — на случай старого кода, который клал в состояние
+        // текст из разметки: именно на этом расхождении запрос уходил
+        // на сервер с cabinClass: "эконом" и отвергался валидацией.
         filters.cabinClasses = selectedClasses
-            .map((label) => CABIN_CLASS_BY_LABEL[String(label).toLowerCase()] || null)
+            .map((item) => {
+                const value = String(item);
+                if (Object.values(CABIN_CLASSES).includes(value)) return value;
+                return CABIN_CLASS_BY_LABEL[value.toLowerCase()] || null;
+            })
             .filter(Boolean);
     }
 
