@@ -1,28 +1,24 @@
-import React, { useRef } from "react";
+import React, { useRef, useState } from "react";
+import Calendar from "./Calendar";
 
 /**
- * Поле даты с кликабельной иконкой.
+ * Поле даты с кликабельной иконкой и собственным календарём.
  *
- * showPicker() — штатный способ открыть системный календарь из кода
- * (Chrome 99+, Edge 99+, Firefox 101+, Safari 16+). Где метода нет, поле
- * просто получает фокус, и календарь открывается обычным кликом.
+ * Поле остаётся <input type="date">: ручной ввод, локальный формат и
+ * системная проверка min/max работают как прежде. Меняется только то, что
+ * открывается по иконке.
  *
- * Собственный календарь здесь не нужен: нативный знает локаль, работает
- * с клавиатуры и на телефоне, и его не нужно поддерживать. Заводить свой
- * стоит только ради того, чего нативный не умеет, — например, показывать
- * цены по датам.
- *
- * @param {string}   value    дата в формате ГГГГ-ММ-ДД (значение input[type=date])
- * @param {Function} onChange (nextValue) => void
- * @param {string}   min      минимальная выбираемая дата
- * @param {string}   max      максимальная выбираемая дата
- * @param {string}   error    текст ошибки под полем
- * @param {node}     children дополнительный элемент внутри поля (кнопка удаления рейса)
+ * На телефоне и планшете (pointer: coarse) открывается системный календарь
+ * через showPicker(): нативный выбор даты пальцем удобнее любого своего.
  */
 const DateField = ({ id, label, value, onChange, min, max, error, style, children }) => {
     const inputRef = useRef(null);
+    const [isCalendarOpen, setCalendarOpen] = useState(false);
 
-    const openPicker = () => {
+    const prefersNativePicker = () =>
+        typeof window !== "undefined" && window.matchMedia?.("(pointer: coarse)").matches;
+
+    const openNativePicker = () => {
         const element = inputRef.current;
         if (!element) return;
         element.focus();
@@ -35,9 +31,22 @@ const DateField = ({ id, label, value, onChange, min, max, error, style, childre
         }
     };
 
+    const toggleCalendar = () => {
+        if (prefersNativePicker()) {
+            openNativePicker();
+            return;
+        }
+        setCalendarOpen((open) => !open);
+    };
+
+    const closeCalendar = () => {
+        setCalendarOpen(false);
+        inputRef.current?.focus(); // фокус возвращается в поле, а не улетает в начало страницы
+    };
+
     return (
-        <div className="form-group date" style={style}>
-            <label htmlFor={id}>{label}</label>
+        <div className={`form-group date${isCalendarOpen ? " is-open" : ""}`} style={style}>
+            <label htmlFor={id} id={`${id}-label`}>{label}</label>
 
             <input
                 id={id}
@@ -48,6 +57,13 @@ const DateField = ({ id, label, value, onChange, min, max, error, style, childre
                 max={max}
                 aria-invalid={Boolean(error)}
                 onChange={(event) => onChange(event.target.value)}
+                onKeyDown={(event) => {
+                    // Alt+стрелка вниз — привычный способ открыть календарь с клавиатуры.
+                    if (event.key === "ArrowDown" && event.altKey && !prefersNativePicker()) {
+                        event.preventDefault();
+                        setCalendarOpen(true);
+                    }
+                }}
             />
 
             {/* Прозрачная кнопка поверх иконки: сама иконка нарисована
@@ -56,10 +72,23 @@ const DateField = ({ id, label, value, onChange, min, max, error, style, childre
                 type="button"
                 className="field-icon"
                 tabIndex={-1}
+                aria-haspopup="dialog"
+                aria-expanded={isCalendarOpen}
                 aria-label={`${label}: открыть календарь`}
                 onMouseDown={(event) => event.preventDefault()}
-                onClick={openPicker}
+                onClick={toggleCalendar}
             />
+
+            {isCalendarOpen && (
+                <Calendar
+                    value={value}
+                    min={min}
+                    max={max}
+                    labelledBy={`${id}-label`}
+                    onSelect={onChange}
+                    onClose={closeCalendar}
+                />
+            )}
 
             {children}
 

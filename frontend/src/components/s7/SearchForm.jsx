@@ -126,6 +126,8 @@ const SearchForm = ({ onSearch, tripType = TRIP_TYPES.ROUND_TRIP, isSubmitting =
 
     const totalPassengers = countPassengers(passengers);
     const isComplex = tripType === TRIP_TYPES.COMPLEX;
+    const hasVisibleErrors =
+        (wasSubmitted && !ok) || Object.keys(mappedServerErrors).length > 0;
 
     const renderRoute = (index, row) => {
         const segment = segments[index];
@@ -170,7 +172,11 @@ const SearchForm = ({ onSearch, tripType = TRIP_TYPES.ROUND_TRIP, isSubmitting =
 
     return (
         <div className={`search-form ${isComplex ? "complex-mode" : ""}`}>
-            <form onSubmit={handleSubmit} className={isComplex ? "complex-form" : ""} noValidate>
+            <form
+                onSubmit={handleSubmit}
+                className={`${isComplex ? "complex-form" : ""}${hasVisibleErrors ? " has-field-errors" : ""}`}
+                noValidate
+            >
                 {isComplex ? (
                     <>
                         {segments.map((segment, index) => (
@@ -184,7 +190,7 @@ const SearchForm = ({ onSearch, tripType = TRIP_TYPES.ROUND_TRIP, isSubmitting =
                                     min={index === 0 ? minDate : segments[index - 1].date || minDate}
                                     max={maxDate}
                                     error={errorFor(`segments.${index}.date`)}
-                                    style={{ gridColumn: 5, gridRow: index + 1 }}
+                                    style={{gridColumn: 5, gridRow: index + 1}}
                                 >
                                     {segments.length > 1 && (
                                         <button
@@ -203,7 +209,7 @@ const SearchForm = ({ onSearch, tripType = TRIP_TYPES.ROUND_TRIP, isSubmitting =
                         <button
                             type="button"
                             className="add-flight"
-                            style={{ gridColumn: 1, gridRow: segments.length + 1 }}
+                            style={{gridColumn: 1, gridRow: segments.length + 1}}
                             onClick={addSegment}
                             disabled={segments.length >= LIMITS.MAX_SEGMENTS}
                         >
@@ -222,7 +228,7 @@ const SearchForm = ({ onSearch, tripType = TRIP_TYPES.ROUND_TRIP, isSubmitting =
                             min={minDate}
                             max={maxDate}
                             error={errorFor("segments.0.date")}
-                            style={{ gridColumn: 1, gridRow: 3 }}
+                            style={{gridColumn: 1, gridRow: 3}}
                         />
 
                         {tripType === TRIP_TYPES.ROUND_TRIP && (
@@ -234,7 +240,7 @@ const SearchForm = ({ onSearch, tripType = TRIP_TYPES.ROUND_TRIP, isSubmitting =
                                 min={segments[0].date || minDate}
                                 max={maxDate}
                                 error={errorFor("returnDate")}
-                                style={{ gridColumn: 3, gridRow: 3 }}
+                                style={{gridColumn: 3, gridRow: 3}}
                             />
                         )}
                     </>
@@ -244,7 +250,7 @@ const SearchForm = ({ onSearch, tripType = TRIP_TYPES.ROUND_TRIP, isSubmitting =
                 <div
                     className="form-group passengers"
                     ref={passengersTriggerRef}
-                    style={{ gridColumn: 5, gridRow: passengersRow }}
+                    style={{gridColumn: 5, gridRow: passengersRow}}
                 >
                     <label id="passengers-label">Пассажиры и класс</label>
                     <button
@@ -287,14 +293,15 @@ const SearchForm = ({ onSearch, tripType = TRIP_TYPES.ROUND_TRIP, isSubmitting =
                 <button
                     type="submit"
                     className="search-button"
-                    style={{ gridColumn: 5, gridRow: submitRow }}
+                    style={{gridColumn: 5, gridRow: submitRow}}
                     disabled={isSubmitting}
                 >
                     {isSubmitting ? "ИЩЕМ…" : "ПОИСК"}
                 </button>
 
                 {wasSubmitted && !ok && (
-                    <div className="form-summary-error" role="alert" style={{ gridColumn: "1 / -1", gridRow: submitRow + 1 }}>
+                    <div className="form-summary-error" role="alert"
+                         style={{gridColumn: "1 / -1", gridRow: submitRow + 1}}>
                         Проверьте выделенные поля.
                     </div>
                 )}

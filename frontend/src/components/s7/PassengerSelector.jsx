@@ -105,19 +105,19 @@ const PassengerSelector = ({
 
                 {error && <div className="field-error">{error}</div>}
 
-                <div className="cabin-class-block">
-                    <label className="category-title" htmlFor="cabin-class">Класс обслуживания</label>
-                    <select
-                        id="cabin-class"
-                        className="cabin-class-select"
-                        value={cabinClass}
-                        onChange={(e) => onCabinClassChange(e.target.value)}
-                    >
-                        {Object.entries(CABIN_CLASS_LABELS).map(([value, label]) => (
-                            <option key={value} value={value}>{label}</option>
-                        ))}
-                    </select>
-                </div>
+                {/*<div className="cabin-class-block">*/}
+                {/*    <label className="category-title" htmlFor="cabin-class">Класс обслуживания</label>*/}
+                {/*    <select*/}
+                {/*        id="cabin-class"*/}
+                {/*        className="cabin-class-select"*/}
+                {/*        value={cabinClass}*/}
+                {/*        onChange={(e) => onCabinClassChange(e.target.value)}*/}
+                {/*    >*/}
+                {/*        {Object.entries(CABIN_CLASS_LABELS).map(([value, label]) => (*/}
+                {/*            <option key={value} value={value}>{label}</option>*/}
+                {/*        ))}*/}
+                {/*    </select>*/}
+                {/*</div>*/}
 
                 <div className="tariff-section">
                     <div className="tariff-title">Льготные тарифы</div>

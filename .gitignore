@@ -93,3 +93,12 @@ Thumbs.db
 # Temp
 tmp/
 temp/
+
+# Fonts
+.ttf
+
+# Images
+.png
+.svg
+.jpg
+.jpeg
