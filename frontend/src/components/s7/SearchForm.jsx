@@ -1,503 +1,356 @@
-import React, { useState, useRef, useEffect } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import "./SearchForm.css";
-import DoubleTimeSlider from "../ui/DoubleTimeSlider";
-import Calendar from "../ui/Calendar";
+import PassengerSelector from "./PassengerSelector";
+import AirportField from "./AirportField";
+import {
+    TRIP_TYPES,
+    CABIN_CLASSES,
+    CABIN_CLASS_LABELS,
+    LIMITS,
+    EMPTY_PASSENGERS,
+    todayISO,
+    addDaysISO,
+    validateSearchForm,
+    buildSearchPayload,
+    countPassengers,
+} from "../search/contract";
 
-const SearchForm = ({ onSearch, tripType }) => {
-    // Состояния для стандартного (roundTrip и oneWay)
-    const [from, setFrom] = useState("");
-    const [to, setTo] = useState("");
-    const [departureDate, setDepartureDate] = useState("");
+const emptySegment = () => ({ origin: "", destination: "", date: "" });
+
+/** Склонение: 1 пассажир / 2 пассажира / 5 пассажиров */
+function pluralPassengers(n) {
+    const mod100 = n % 100;
+    const mod10 = n % 10;
+    if (mod100 >= 11 && mod100 <= 14) return `${n} пассажиров`;
+    if (mod10 === 1) return `${n} пассажир`;
+    if (mod10 >= 2 && mod10 <= 4) return `${n} пассажира`;
+    return `${n} пассажиров`;
+}
+
+/**
+ * Поле даты с кликабельной иконкой.
+ * showPicker() — штатный способ открыть системный календарь из кода
+ * (Chrome 99+, Edge, Safari 16+, Firefox 101+). Где его нет, поле просто
+ * получает фокус, и календарь открывается по клику пользователя.
+ */
+const DateField = ({ id, label, value, onChange, min, max, error, style, children }) => {
+    const inputRef = useRef(null);
+
+    const openPicker = () => {
+        const el = inputRef.current;
+        if (!el) return;
+        el.focus();
+        if (typeof el.showPicker === "function") {
+            try {
+                el.showPicker();
+            } catch {
+                /* браузер запретил вызов вне пользовательского жеста — остаётся фокус */
+            }
+        }
+    };
+
+    return (
+        <div className="form-group date" style={style}>
+            <label htmlFor={id}>{label}</label>
+            <input
+                id={id}
+                ref={inputRef}
+                type="date"
+                value={value}
+                min={min}
+                max={max}
+                aria-invalid={Boolean(error)}
+                onChange={(e) => onChange(e.target.value)}
+            />
+            <button
+                type="button"
+                className="field-icon"
+                tabIndex={-1}
+                aria-label={`${label}: открыть календарь`}
+                onMouseDown={(e) => e.preventDefault()}
+                onClick={openPicker}
+            />
+            {children}
+            {error && <div className="field-error">{error}</div>}
+        </div>
+    );
+};
+
+/**
+ * Форма поиска рейсов.
+ *
+ * Собирает данные, валидирует их и отдаёт наверх готовый payload.
+ * Сетью не занимается — это ответственность страницы (S7.jsx).
+ *
+ * @param {Function} onSearch          (payload) => void | Promise<void>
+ * @param {string}   tripType          oneWay | roundTrip | complex
+ * @param {boolean}  isSubmitting      запрос выполняется, кнопка блокируется
+ * @param {object}   serverFieldErrors ошибки валидации от бэкенда: { "itinerary.0.origin": "..." }
+ */
+const SearchForm = ({ onSearch, tripType = TRIP_TYPES.ROUND_TRIP, isSubmitting = false, serverFieldErrors }) => {
+    const [segments, setSegments] = useState([emptySegment()]);
     const [returnDate, setReturnDate] = useState("");
-    const [passengers, setPassengers] = useState({
-        adults: 1,
-        teens: 0,
-        children: 0,
-        infants: 0,
-        youth: 0,
-        seniors: 0,
-        largeFamily: 0,
-        disabled: 0,
-        disabledChild: 0,
-        companion: 0,
-    });
-    const [classType, setClassType] = useState("economy");
-    const [showPassengerModal, setShowPassengerModal] = useState(false);
-    const modalRef = useRef(null);
+    const [passengers, setPassengers] = useState(EMPTY_PASSENGERS);
+    const [cabinClass, setCabinClass] = useState(CABIN_CLASSES.ECONOMY);
 
-    // Рефы для полей ввода
-    const fromInputRef = useRef(null);
-    const toInputRef = useRef(null);
-    const departureInputRef = useRef(null);
-    const returnInputRef = useRef(null);
+    const [showPassengers, setShowPassengers] = useState(false);
+    const [wasSubmitted, setWasSubmitted] = useState(false);
 
-    // Состояние для сложного маршрута
-    const [flights, setFlights] = useState([{ from: "", to: "", date: "" }]);
+    const passengersTriggerRef = useRef(null);
 
-    // const [showCalendar, setShowCalendar] = useState({ isOpen: false, target: "", position: { x: 0, y: 0 } });
-    const [selectedDate, setSelectedDate] = useState(null); // Добавляем selectedDate
+    const minDate = useMemo(() => todayISO(), []);
+    const maxDate = useMemo(() => addDaysISO(minDate, LIMITS.MAX_DAYS_AHEAD), [minDate]);
 
-    const addFlight = () => {
-        setFlights([...flights, { from: "", to: "", date: "" }]);
-    };
-
-    const removeFlight = (index) => {
-        if (flights.length === 1) return;
-        const newFlights = flights.filter((_, i) => i !== index);
-        setFlights(newFlights);
-
-        // Если удалили первый элемент, обновляем состояние
-        if (index === 0 && newFlights.length > 0) {
-            setFlights([newFlights[0], ...newFlights.slice(1)]);
-        }
-    };
-
-    const handleFlightChange = (index, field, value) => {
-        const newFlights = [...flights];
-        newFlights[index][field] = value;
-        setFlights(newFlights);
-    };
-
-    const validateForm = () => {
-        if (tripType === "complex") {
-            return flights.every(flight =>
-                flight.from && flight.to && flight.date
-            );
-        } else {
-            return from && to && departureDate;
-        }
-    };
-
-    const handleSubmit = (e) => {
-        e.preventDefault();
-        if (!validateForm()) {
-            alert("Заполните все обязательные поля");
-            return;
-        }
-
-        let searchData = {};
-
-        if (tripType === "complex") {
-            // Для сложного маршрута
-            searchData = {
-                itinerary: flights.map(flight => ({
-                    origin: flight.from,
-                    destination: flight.to,
-                    departureDate: flight.date
-                })),
-                passengers: passengers,
-                cabinClass: classType,
-                tripType: tripType
-            };
-        } else {
-            // Для обычных маршрутов (туда-обратно и в одну сторону)
-            searchData = {
-                itinerary: [{
-                    origin: from,
-                    destination: to,
-                    departureDate: departureDate
-                }],
-                passengers: passengers,
-                cabinClass: classType,
-                tripType: tripType
-            };
-
-            // Добавляем обратный рейс для roundTrip
-            if (tripType === "roundTrip" && returnDate) {
-                searchData.itinerary.push({
-                    origin: to,
-                    destination: from,
-                    departureDate: returnDate
-                });
-            }
-        }
-
-        console.log("Формируем данные для поиска:", searchData);
-
-        // Проверяем обязательные поля
-        if (tripType === "complex") {
-            if (flights.length === 0 || !flights[0].from || !flights[0].to || !flights[0].date) {
-                alert("Заполните информацию о рейсах");
-                return;
-            }
-        } else {
-            if (!from || !to || !departureDate) {
-                alert("Заполните обязательные поля");
-                return;
-            }
-        }
-
-        onSearch(searchData);
-    };
-
-    const totalPassengers = Object.values(passengers).reduce(
-        (sum, val) => sum + val,
-        0
+    const formState = useMemo(
+        () => ({ tripType, segments, returnDate, passengers, cabinClass }),
+        [tripType, segments, returnDate, passengers, cabinClass]
     );
 
-    const [showCalendar, setShowCalendar] = useState({
-        isOpen: false,
-        target: null, // 'departure', 'return', 'complex-date-0' и т.д.
-        position: { x: 0, y: 0 }
-    });
+    const { ok, errors } = useMemo(() => validateSearchForm(formState), [formState]);
 
-    // Обработчик открытия календаря
-    const handleDateClick = (event, fieldId) => {
-        const rect = event.target.getBoundingClientRect();
-        setShowCalendar({
-            isOpen: true,
-            target: fieldId,
-            position: { x: rect.left, y: rect.bottom + 10 }
+    // Ошибки бэкенда приходят с ключами itinerary.N.field — приводим к ключам формы.
+    const mappedServerErrors = useMemo(() => {
+        if (!serverFieldErrors) return {};
+        return Object.fromEntries(
+            Object.entries(serverFieldErrors).map(([path, message]) => [
+                path.replace(/^itinerary\.(\d+)\.departureDate$/, "segments.$1.date")
+                    .replace(/^itinerary\.(\d+)\./, "segments.$1."),
+                message,
+            ])
+        );
+    }, [serverFieldErrors]);
+
+    // Показываем ошибку только после попытки отправки — иначе пустая форма
+    // сразу краснеет и обучает пользователя игнорировать подсветку.
+    const errorFor = (key) => (wasSubmitted ? errors[key] : undefined) || mappedServerErrors[key];
+
+    // Смена типа поездки не должна тащить за собой лишние сегменты и дату возврата.
+    useEffect(() => {
+        if (tripType !== TRIP_TYPES.COMPLEX) {
+            setSegments((prev) => (prev.length > 1 ? prev.slice(0, 1) : prev));
+        }
+        if (tripType !== TRIP_TYPES.ROUND_TRIP) {
+            setReturnDate("");
+        }
+    }, [tripType]);
+
+    /* --------------------------- изменения полей --------------------------- */
+
+    // Иммутабельно: старый код писал newSegments[i][field] = value, то есть
+    // мутировал объект, лежащий в state, — React не видит такое изменение.
+    const updateSegment = useCallback((index, field, value) => {
+        setSegments((prev) => prev.map((s, i) => (i === index ? { ...s, [field]: value } : s)));
+    }, []);
+
+    const swapDirection = useCallback((index) => {
+        setSegments((prev) =>
+            prev.map((s, i) => (i === index ? { ...s, origin: s.destination, destination: s.origin } : s))
+        );
+    }, []);
+
+    const addSegment = useCallback(() => {
+        setSegments((prev) => {
+            if (prev.length >= LIMITS.MAX_SEGMENTS) return prev;
+            const last = prev[prev.length - 1];
+            // Разумный дефолт: следующий перелёт начинается там, где закончился прошлый.
+            return [...prev, { ...emptySegment(), origin: last.destination, date: last.date }];
         });
+    }, []);
+
+    const removeSegment = useCallback((index) => {
+        setSegments((prev) => (prev.length === 1 ? prev : prev.filter((_, i) => i !== index)));
+    }, []);
+
+    const closePassengers = useCallback(() => setShowPassengers(false), []);
+
+    /* ------------------------------ отправка ------------------------------ */
+
+    const handleSubmit = (event) => {
+        event.preventDefault();
+        setWasSubmitted(true);
+        if (!ok || isSubmitting) return;
+        onSearch(buildSearchPayload(formState));
     };
 
-    const updateDate = (day) => {
-        if (showCalendar.target === "departure") {
-            setDepartureDate(day);
-        } else if (showCalendar.target === "return") {
-            setReturnDate(day);
-        } else if (showCalendar.target.startsWith("complex-date-")) {
-            const index = parseInt(showCalendar.target.split("-").pop(), 10);
-            const newFlights = [...flights];
-            newFlights[index].date = day;
-            setFlights(newFlights);
-        }
-        setShowCalendar({ isOpen: false });
-    };
+    /* ------------------------------- разметка ------------------------------ */
 
-    const selectDate = (date) => {
-        setSelectedDate(date);
+    const totalPassengers = countPassengers(passengers);
+    const isComplex = tripType === TRIP_TYPES.COMPLEX;
 
-        if (showCalendar.target === "departure") {
-            setDepartureDate(date);
-        } else if (showCalendar.target === "return") {
-            setReturnDate(date);
-        } else if (showCalendar.target.startsWith("complex-date-")) {
-            const index = parseInt(showCalendar.target.split("-").pop(), 10);
-            const newFlights = [...flights];
-            newFlights[index].date = date;
-            setFlights(newFlights);
-        }
-
-        setShowCalendar({ isOpen: false });
-    };
-
-    const PassengerCategory = ({ label, subLabel, value, onChange }) => {
+    const renderRoute = (index, row) => {
+        const segment = segments[index];
         return (
-            <div className="passenger-category">
-                <div className="passenger-label">
-                    <div className="category-title">{label}</div>
-                    <div className="category-description">{subLabel}</div>
-                </div>
-                <div className="passenger-controls">
-                    <button
-                        type="button"
-                        className="control-btn"
-                        onClick={() => onChange(Math.max(0, value - 1))}
-                        disabled={value <= 0}
-                    >
-                        -
-                    </button>
-                    <span className="passenger-value">{value}</span>
-                    <button
-                        type="button"
-                        className="control-btn"
-                        onClick={() => onChange(value + 1)}
-                    >
-                        +
-                    </button>
-                </div>
-            </div>
+            <React.Fragment key={`segment-${index}`}>
+                <AirportField
+                    id={`origin-${index}`}
+                    label="Откуда"
+                    variant="from"
+                    value={segment.origin}
+                    onChange={(value) => updateSegment(index, "origin", value)}
+                    error={errorFor(`segments.${index}.origin`)}
+                    style={{ gridColumn: 1, gridRow: row }}
+                />
+
+                <button
+                    type="button"
+                    className="swap-direction"
+                    style={{ gridColumn: 2, gridRow: row }}
+                    aria-label="Поменять местами"
+                    title="Поменять местами"
+                    onClick={() => swapDirection(index)}
+                >
+                    ⇄
+                </button>
+
+                <AirportField
+                    id={`destination-${index}`}
+                    label="Куда"
+                    variant="to"
+                    value={segment.destination}
+                    onChange={(value) => updateSegment(index, "destination", value)}
+                    error={errorFor(`segments.${index}.destination`)}
+                    style={{ gridColumn: 3, gridRow: row }}
+                />
+            </React.Fragment>
         );
     };
 
-    // Создаем общий компонент для выбора пассажиров
-    const PassengerSelector = () => (
-        <div
-            className="passenger-dropdown"
-            ref={modalRef}
-            onClick={(e) => e.stopPropagation()}
-        >
-            <div className="passenger-content">
-                <PassengerCategory
-                    label="Взрослые"
-                    subLabel="старше 18 лет на момент перелета"
-                    value={passengers.adults}
-                    onChange={(newValue) => setPassengers({ ...passengers, adults: newValue })}
-                />
-                <PassengerCategory
-                    label="Подростки"
-                    subLabel="от 12 до 18 лет на момент перелета"
-                    value={passengers.teens}
-                    onChange={(newValue) => setPassengers({ ...passengers, teens: newValue })}
-                />
-                <PassengerCategory
-                    label="Дети"
-                    subLabel="от 0 до 12 лет на момент перелета"
-                    value={passengers.children}
-                    onChange={(newValue) => setPassengers({ ...passengers, children: newValue })}
-                />
-                <PassengerCategory
-                    label="Младенцы"
-                    subLabel="до 2 лет (без места, на руках у взрослого)"
-                    value={passengers.infants}
-                    onChange={(newValue) => setPassengers({ ...passengers, infants: newValue })}
-                />
-
-                <div className="tariff-section">
-                    <div className="tariff-title">Льготные тарифы</div>
-                    <div className="tariff-description">
-                        для некоторых групп пассажиров
-                    </div>
-                    <a href="#" className="tariff-link">Подробнее о тарифе</a>
-                </div>
-            </div>
-        </div>
-    );
-
-    useEffect(() => {
-        const handleClickOutside = (event) => {
-            if (modalRef.current && !modalRef.current.contains(event.target)) {
-                setShowPassengerModal(false);
-            }
-        };
-
-        document.addEventListener("mousedown", handleClickOutside);
-        return () => {
-            document.removeEventListener("mousedown", handleClickOutside);
-        };
-    }, []);
+    const passengersRow = isComplex ? segments.length + 1 : 1;
+    const submitRow = isComplex ? segments.length + 2 : 3;
 
     return (
-        <div className={`search-form ${tripType === "complex" ? "complex-mode" : ""}`}>
-            <form onSubmit={handleSubmit} className={tripType === "complex" ? "complex-form" : ""}>
-                {tripType === "complex" ? (
+        <div className={`search-form ${isComplex ? "complex-mode" : ""}`}>
+            <form onSubmit={handleSubmit} className={isComplex ? "complex-form" : ""} noValidate>
+                {isComplex ? (
                     <>
-                        {flights.map((flight, index) => (
-                            <React.Fragment key={index}>
-                                <div className="form-group from" style={{gridColumn: 1, gridRow: index + 1}}>
-                                    <label>Откуда</label>
-                                    <input
-                                        type="text"
-                                        value={flight.from}
-                                        onChange={(e) => handleFlightChange(index, "from", e.target.value)}
-                                        placeholder="Город или аэропорт"
-                                    />
-                                </div>
-                                <div
-                                    className="form-group to"
-                                    style={{gridColumn: 3, gridRow: index + 1}}
+                        {segments.map((segment, index) => (
+                            <React.Fragment key={`row-${index}`}>
+                                {renderRoute(index, index + 1)}
+                                <DateField
+                                    id={`date-${index}`}
+                                    label="Дата"
+                                    value={segment.date}
+                                    onChange={(value) => updateSegment(index, "date", value)}
+                                    min={index === 0 ? minDate : segments[index - 1].date || minDate}
+                                    max={maxDate}
+                                    error={errorFor(`segments.${index}.date`)}
+                                    style={{ gridColumn: 5, gridRow: index + 1 }}
                                 >
-                                    <label>Куда</label>
-                                    <input
-                                        type="text"
-                                        value={flight.to}
-                                        onChange={(e) => handleFlightChange(index, "to", e.target.value)}
-                                        placeholder="Город или аэропорт"
-                                    />
-                                </div>
-                                <div
-                                    className="form-group date"
-                                    // onClick={(e) => handleDateClick(e, `departure-${index}`)} // Для сложного маршрута
-                                    style={{
-                                        gridColumn: 5,
-                                        gridRow: index + 1,
-                                        position: 'relative' /* Добавлено для позиционирования крестика */
-                                    }}
-                                >
-                                    <label>Дата</label>
-                                    <input
-                                        type="date"
-                                        value={flight.date}
-                                        onChange={(e) => handleFlightChange(index, "date", e.target.value)}
-                                    />
-
-                                    {/* Крестик удаления (отображается для всех рейсов, кроме единственного) */}
-                                    {flights.length > 1 && (
+                                    {segments.length > 1 && (
                                         <button
                                             type="button"
                                             className="remove-flight"
-                                            onClick={() => removeFlight(index)}
+                                            aria-label={`Удалить перелёт ${index + 1}`}
+                                            onClick={() => removeSegment(index)}
                                         >
                                             ×
                                         </button>
                                     )}
-                                </div>
+                                </DateField>
                             </React.Fragment>
                         ))}
 
-                        {/* Кнопка добавления рейса можно разместить в первой колонке следующей строки */}
                         <button
                             type="button"
                             className="add-flight"
-                            style={{gridColumn: 1, gridRow: flights.length + 1}}
-                            onClick={addFlight}
+                            style={{ gridColumn: 1, gridRow: segments.length + 1 }}
+                            onClick={addSegment}
+                            disabled={segments.length >= LIMITS.MAX_SEGMENTS}
                         >
                             + Добавить рейс
-                        </button>
-
-                        {/* Поле "Пассажиры" – в пятой колонке, строка = (число рейсов + 1) */}
-                        <div
-                            className="form-group passengers"
-                            style={{gridColumn: 5, gridRow: flights.length + 1}}
-                            onClick={() => setShowPassengerModal(!showPassengerModal)}
-                        >
-                            <label>Пассажиры</label>
-                            <div className="passenger-input">{totalPassengers} персон</div>
-                            {showPassengerModal && <PassengerSelector/>}
-                        </div>
-
-                        {/* Кнопка "ПОИСК" – в пятой колонке, следующая строка */}
-                        <button
-                            type="submit"
-                            className="search-button"
-                            style={{gridColumn: 5, gridRow: flights.length + 2}}
-                        >
-                            ПОИСК
                         </button>
                     </>
                 ) : (
                     <>
-                        {/* Разметка для roundTrip и oneWay (без изменений) */}
-                        <div className="form-group from" onClick={() => fromInputRef.current?.focus()}>
-                            <label>Откуда</label>
-                            <input
-                                ref={fromInputRef}
-                                type="text"
-                                placeholder="Город или аэропорт"
-                                value={from}
-                                onChange={(e) => setFrom(e.target.value)}
-                            />
-                        </div>
+                        {renderRoute(0, 1)}
 
-                        <div className="form-group to" onClick={() => toInputRef.current?.focus()}>
-                            <label>Куда</label>
-                            <input
-                                ref={toInputRef}
-                                type="text"
-                                placeholder="Город или аэропорт"
-                                value={to}
-                                onChange={(e) => setTo(e.target.value)}
-                            />
-                        </div>
+                        <DateField
+                            id="date-departure"
+                            label={tripType === TRIP_TYPES.ONE_WAY ? "Дата" : "Отправление"}
+                            value={segments[0].date}
+                            onChange={(value) => updateSegment(0, "date", value)}
+                            min={minDate}
+                            max={maxDate}
+                            error={errorFor("segments.0.date")}
+                            style={{ gridColumn: 1, gridRow: 3 }}
+                        />
 
-                        {/* Поле "Дата отправления" (переименовывается для "В одну сторону") */}
-                        <div className="form-group date">
-                            <label>{tripType === "oneWay" ? "Дата" : "Отправление"}</label>
-                            <input
-                                ref={departureInputRef}
-                                type="date"
-                                value={departureDate}
-                                onChange={(e) => setDepartureDate(e.target.value)}
+                        {tripType === TRIP_TYPES.ROUND_TRIP && (
+                            <DateField
+                                id="date-return"
+                                label="Возвращение"
+                                value={returnDate}
+                                onChange={setReturnDate}
+                                min={segments[0].date || minDate}
+                                max={maxDate}
+                                error={errorFor("returnDate")}
+                                style={{ gridColumn: 3, gridRow: 3 }}
                             />
-                        </div>
-
-                        {/* Поле "Возвращение" (только для "Туда и обратно") */}
-                        {tripType === "roundTrip" && (
-                            <div className="form-group date">
-                                <label>Возвращение</label>
-                                <input
-                                    ref={returnInputRef}
-                                    type="date"
-                                    value={returnDate}
-                                    onChange={(e) => setReturnDate(e.target.value)}
-                                />
-                            </div>
                         )}
-
-                        {/* Поле пассажиров в 5-й колонке */}
-                        <div
-                            className="form-group passengers"
-                            style={{ gridColumn: 5, gridRow: 1 }}
-                            onClick={() => setShowPassengerModal(!showPassengerModal)}
-                        >
-                            <label>Пассажиры</label>
-                            <div className="passenger-input">{totalPassengers} персон</div>
-                            {showPassengerModal && (
-                                <div
-                                    className="passenger-dropdown"
-                                    ref={modalRef}
-                                    onClick={(e) => e.stopPropagation()}
-                                >
-                                    <div className="passenger-content">
-                                        <PassengerCategory
-                                            label="Взрослые"
-                                            subLabel="старше 18 лет на момент перелета"
-                                            value={passengers.adults}
-                                            onChange={(newValue) => setPassengers({ ...passengers, adults: newValue })}
-                                        />
-                                        <PassengerCategory
-                                            label="Подростки"
-                                            subLabel="от 12 до 18 лет на момент перелета"
-                                            value={passengers.teens}
-                                            onChange={(newValue) => setPassengers({ ...passengers, teens: newValue })}
-                                        />
-                                        <PassengerCategory
-                                            label="Дети"
-                                            subLabel="от 0 до 12 лет на момент перелета"
-                                            value={passengers.children}
-                                            onChange={(newValue) => setPassengers({ ...passengers, children: newValue })}
-                                        />
-                                        <PassengerCategory
-                                            label="Младенцы"
-                                            subLabel="до 2 лет (без места, на руках у взрослого)"
-                                            value={passengers.infants}
-                                            onChange={(newValue) => setPassengers({ ...passengers, infants: newValue })}
-                                        />
-
-                                        <div className="tariff-section">
-                                            <div className="tariff-title">Льготные тарифы</div>
-                                            <div className="tariff-description">
-                                                для некоторых групп пассажиров
-                                            </div>
-                                            <a href="#" className="tariff-link">Подробнее о тарифе</a>
-                                        </div>
-                                    </div>
-                                </div>
-                            )}
-
-                        </div>
-
-                        <button type="submit" className="search-button">
-                            ПОИСК
-                        </button>
                     </>
                 )}
-                {showCalendar.isOpen && (
-                    <Calendar
-                        date={selectedDate}
-                        onSelect={(day) => {
-                            // Обновляем выбранную дату
-                            updateDate(day); // Ваша функция для обновления состояния
-                            setShowCalendar({ isOpen: false });
-                        }}
-                        onClose={() => setShowCalendar({ isOpen: false })}
-                        position={showCalendar.position}
+
+                {/* Пассажиры и класс */}
+                <div
+                    className="form-group passengers"
+                    ref={passengersTriggerRef}
+                    style={{ gridColumn: 5, gridRow: passengersRow }}
+                >
+                    <label id="passengers-label">Пассажиры и класс</label>
+                    <button
+                        type="button"
+                        className="passenger-input"
+                        aria-haspopup="dialog"
+                        aria-expanded={showPassengers}
+                        aria-labelledby="passengers-label"
+                        onClick={() => setShowPassengers((v) => !v)}
+                    >
+                        {pluralPassengers(totalPassengers)}, {CABIN_CLASS_LABELS[cabinClass].toLowerCase()}
+                    </button>
+
+                    <button
+                        type="button"
+                        className="field-icon"
+                        tabIndex={-1}
+                        aria-label="Пассажиры и класс: открыть"
+                        onMouseDown={(e) => e.preventDefault()}
+                        onClick={() => setShowPassengers((v) => !v)}
                     />
+
+                    {showPassengers && (
+                        <PassengerSelector
+                            passengers={passengers}
+                            onChange={setPassengers}
+                            cabinClass={cabinClass}
+                            onCabinClassChange={setCabinClass}
+                            onClose={closePassengers}
+                            error={errorFor("passengers")}
+                            triggerRef={passengersTriggerRef}
+                        />
+                    )}
+
+                    {!showPassengers && errorFor("passengers") && (
+                        <div className="field-error">{errorFor("passengers")}</div>
+                    )}
+                </div>
+
+                <button
+                    type="submit"
+                    className="search-button"
+                    style={{ gridColumn: 5, gridRow: submitRow }}
+                    disabled={isSubmitting}
+                >
+                    {isSubmitting ? "ИЩЕМ…" : "ПОИСК"}
+                </button>
+
+                {wasSubmitted && !ok && (
+                    <div className="form-summary-error" role="alert" style={{ gridColumn: "1 / -1", gridRow: submitRow + 1 }}>
+                        Проверьте выделенные поля.
+                    </div>
                 )}
             </form>
         </div>
     );
 };
-
-// const PassengerCategory = ({ label, subLabel, value, onChange }) => {
-//     return (
-//         <div className="passenger-category">
-//             <div className="passenger-label">
-//                 <div>{label}</div>
-//                 <div className="sub-label">{subLabel}</div>
-//             </div>
-//             <div className="passenger-controls">
-//                 <button type="button" onClick={() => onChange(value - 1)}>
-//                     -
-//                 </button>
-//                 <span className="passenger-value">{value}</span>
-//                 <button type="button" onClick={() => onChange(value + 1)}>
-//                     +
-//                 </button>
-//             </div>
-//         </div>
-//     );
-// };
 
 export default SearchForm;

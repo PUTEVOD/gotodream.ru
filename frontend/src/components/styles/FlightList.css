@@ -13,14 +13,24 @@
     margin-left: 0;
 }
 .flight-main-info {
-    display: flex;
+    display: grid;
+    /* Боковые колонки фиксированной ширины: положение блока «прилёт»
+       одинаково во всех карточках. Середина забирает остаток, поэтому её
+       центр совпадает с центром всей области, а не съезжает вслед за
+       длиной названия авиакомпании. */
+    grid-template-columns: minmax(0, 220px) minmax(0, 1fr) minmax(0, 220px);
     align-items: center;
-    gap: 20%;
+    gap: 24px;
     flex-grow: 1;
+    min-width: 0;
 }
 
-.flight-departure, .flight-arrival {
+/* Содержимое центрируется внутри своей колонки. Колонки боковые одинаковой
+   ширины, поэтому центры трёх блоков стоят на равных расстояниях. */
+.flight-departure,
+.flight-arrival {
     text-align: center;
+    min-width: 0;
 }
 
 .flight-time {
@@ -87,4 +97,73 @@
 
 .select-button:hover {
     background: #cecece;
+}
+
+/* Дописать в конец frontend/src/styles/FlightList.css
+
+   Причина правки: у .flight-main-info было display:flex с gap:20%.
+   Ширина всех трёх блоков определялась их содержимым, поэтому «Прилёт»
+   стоял на разном расстоянии от левого края в каждой карточке — глазу
+   не за что зацепиться при просмотре списка.
+
+   Решение: сетка из трёх колонок фиксированной пропорции. Средняя колонка
+   имеет собственную ширину независимо от длины названия авиакомпании,
+   поэтому третья колонка начинается на одном и том же месте во всех карточках. */
+
+.flight-main-info {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(120px, 170px) minmax(0, 1fr);
+    align-items: center;
+    gap: 24px;
+    flex-grow: 1;
+    min-width: 0;
+}
+
+/* Выравнивание по левому краю колонки: сравнивать время вылета и прилёта
+   удобнее, когда обе группы начинаются на одной вертикали. */
+.flight-departure,
+.flight-arrival {
+    text-align: left;
+    min-width: 0;
+}
+
+.flight-duration {
+    text-align: center;
+    min-width: 0;
+}
+
+/* Моноширинные цифры: 11:05 и 21:50 занимают одинаковую ширину,
+   колонка времени перестаёт «дышать». */
+.flight-time,
+.flight-date,
+.flight-price {
+    font-variant-numeric: tabular-nums;
+}
+
+/* Длинное название авиакомпании обрезается, а не растягивает колонку. */
+.airline,
+.duration,
+.flight-city,
+.flight-airport {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.flight-card {
+    gap: 24px;
+}
+
+@media (max-width: 900px) {
+    .flight-main-info {
+        grid-template-columns: minmax(0, 150px) minmax(0, 1fr) minmax(0, 150px);
+        gap: 12px;
+    }
+}
+
+/* Третья строка средней колонки — число пересадок. */
+.stops {
+    font-size: 12px;
+    color: #686868;
+    margin-top: 3px;
 }
