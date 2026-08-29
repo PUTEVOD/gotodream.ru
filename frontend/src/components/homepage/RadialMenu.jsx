@@ -21,11 +21,11 @@ const Menu = () => {
         { id: "plane-tickets", title: "Билеты на\nсамолет", icon: planeIcon, path: "/s7" },
         { id: "train-tickets", title: "Билеты на\nпоезд", icon: trainIcon, path: "/trains" },
         { id: "russia-tours", title: "Туры по\nРоссии", icon: rusIcon, path: "/russia-tours" },
+        { id: "abroad-tours", title: "Туры за\nрубеж", icon: worldIcon, path: "/abroad-tours" },
+        { id: "hotels", title: "Гостиницы", icon: hotelIcon, path: "/hotels" },
         { id: "transfers", title: "Трансферы", icon: transferIcon, path: "/transfers" },
         { id: "insurance", title: "Страхование", icon: insuranceIcon, path: "/insurance" },
         { id: "carrent", title: "Аренда\nАвто", icon: carRentIcon, path: "/car-rent" },
-        { id: "abroad-tours", title: "Туры за\nрубеж", icon: worldIcon, path: "/abroad-tours" },
-        { id: "hotels", title: "Гостиницы", icon: hotelIcon, path: "/hotels" },
     ];
 
     return (
@@ -45,10 +45,6 @@ const Menu = () => {
                             <div className="icon-container">
                                 <img src={section.icon} alt={section.title} />
                             </div>
-                            <div className="corner top-left"></div>
-                            <div className="corner top-right"></div>
-                            <div className="corner bottom-left"></div>
-                            <div className="corner bottom-right"></div>
                             <div className="hover-effect" id={`hover-${section.id}`}></div>
                         </div>
                     ))}
@@ -66,10 +62,6 @@ const Menu = () => {
                             <div className="icon-container">
                                 <img src={section.icon} alt={section.title} />
                             </div>
-                            <div className="corner top-left"></div>
-                            <div className="corner top-right"></div>
-                            <div className="corner bottom-left"></div>
-                            <div className="corner bottom-right"></div>
                             <div className="hover-effect" id={`hover-${section.id}`}></div>
                         </div>
                     ))}

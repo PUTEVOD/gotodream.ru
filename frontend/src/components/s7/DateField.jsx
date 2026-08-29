@@ -31,13 +31,15 @@ const DateField = ({ id, label, value, onChange, min, max, error, style, childre
         }
     };
 
-    const toggleCalendar = () => {
-        if (prefersNativePicker()) {
-            openNativePicker();
-            return;
-        }
-        setCalendarOpen((open) => !open);
-    };
+    // const toggleCalendar = () => {
+    //     if (prefersNativePicker()) {
+    //         openNativePicker();
+    //         return;
+    //     }
+    //     setCalendarOpen((open) => !open);
+    // };
+
+    const toggleCalendar = () => setCalendarOpen((open) => !open);
 
     const closeCalendar = () => {
         setCalendarOpen(false);

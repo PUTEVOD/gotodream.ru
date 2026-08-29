@@ -1,0 +1,372 @@
+/* frontend/src/components/styles/FiltersPanel.css
+   ---------------------------------------------------------------------------
+   Шторка фильтров (bottom sheet) для страницы /s7.
+
+   Один и тот же HTML работает в двух режимах, переключает их только этот файл:
+
+     >= 1024px  .filters-panel { display: contents } — обёртка не создаёт
+                бокса, оба <aside> становятся прямыми элементами грида
+                .main-container и встают в свои колонки. Кнопка, затемнение
+                и шапка шторки скрыты.
+
+     <  1024px  .filters-panel — блок с position: fixed, выезжающий снизу.
+
+   Точка перелома 1024px должна совпадать со значением в S7.responsive.css.
+   Если меняете — меняйте в обоих файлах.
+   --------------------------------------------------------------------------- */
+
+/* ====================== Десктоп: шторки не существует ==================== */
+
+.filters-panel,
+.filters-sheet__body {
+    /* display:contents убирает бокс элемента, но оставляет детей в потоке
+       родителя. Поддерживается везде, кроме IE. */
+    display: contents;
+}
+
+.filters-fab,
+.filters-dock,
+.filters-backdrop,
+.filters-sheet__head,
+.filters-sheet__foot {
+    display: none;
+}
+
+/* ========================== Мобильный режим ============================== */
+
+@media (max-width: 1023.98px) {
+
+    /* ------------- строка «Фильтры» над списком рейсов ------------------ */
+
+    /* Стоит В ПОТОКЕ страницы. z-index здесь НЕ задаётся намеренно.
+       В первой версии кнопка была липкой (position: sticky; z-index: 1100)
+       и перекрывала всё подряд: 1100 выше и шапки (1000), и формы поиска
+       (100), поэтому раскрытый список аэропортов уходил под неё — ровно тот
+       же дефект, что был у поля «Пассажиры и класс». В потоке кнопка ни с
+       чем не пересекается, и слой ей не нужен.
+       Место в сетке (grid-area: fbar) задаётся в S7.responsive.css. */
+    .filters-fab {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+
+        width: 100%;
+        min-height: 48px;
+        margin: 4px 0 6px;
+        padding: 12px 20px;
+
+        background: #000;
+        border: none;
+        border-radius: 14px;
+
+        color: #fff;
+        font-family: 'Inter-Light', system-ui, sans-serif;
+        font-size: 16px;
+        line-height: 1;
+        white-space: nowrap;
+        cursor: pointer;
+    }
+
+    .filters-fab:focus-visible {
+        outline: 2px solid #4a90e2;
+        outline-offset: 3px;
+    }
+
+    /* -------------------- нижняя панель «Фильтры» ----------------------- */
+
+    /* Показывается, когда строка выше ушла из поля зрения, и прячется, когда
+       та вернулась. Момент определяет IntersectionObserver в FiltersPanel.jsx,
+       а не обработчик scroll: тот дёргал бы layout на каждый пиксель.
+
+       z-index: 50 — выше списка рейсов (.flight-list-wrapper, z-index: 1),
+       но НИЖЕ формы поиска (.search-form, z-index: 100) вместе с её
+       раскрытыми списками и затемняющей подложкой. К моменту появления
+       панели форма уже за верхним краем экрана, но при быстрой прокрутке
+       вверх низкий слой гарантирует, что список аэропортов останется
+       сверху, а не уйдёт под кнопку. */
+    .filters-dock {
+        display: block;
+        position: fixed;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        z-index: 50;
+
+        transform: translateY(100%);
+        visibility: hidden;
+        transition: transform .26s ease, visibility 0s linear .26s;
+    }
+
+    .filters-dock.is-visible {
+        transform: translateY(0);
+        visibility: visible;
+        transition: transform .26s ease, visibility 0s linear 0s;
+    }
+
+    /* Полоса над кнопкой. Контент не должен упираться в чёрную панель и
+       смешиваться с ней: карточки рейсов тоже чёрные, и без разделителя
+       граница кнопки теряется. backdrop-filter размывает то, что за
+       полосой, маска гасит эффект к верхнему краю — получается плавный
+       переход от чёткого содержимого к сплошной кнопке. */
+    .filters-dock::before {
+        content: "";
+        position: absolute;
+        left: 0;
+        right: 0;
+        bottom: 100%;
+        height: 64px;
+        pointer-events: none;
+
+        /* Затемнение, а не засветление: полоса продолжает чёрную кнопку вверх
+           и гаснет к нулю. Белый градиент прошлой версии читался как светлая
+           тень под панелью и спорил и с чёрной кнопкой, и с чёрными
+           карточками рейсов.
+
+           Запасной вариант для браузеров без backdrop-filter: только
+           затемнение, без размытия. */
+        background: rgba(0, 0, 0, .88);
+        /* Нижняя треть полосы гасит содержимое полностью, дальше эффект
+           плавно сходит на нет. Линейный спад от самого низа оставлял у
+           края кнопки слишком светлую зону: белые «Выбрать» и белый фон
+           между карточками успевали проступить вплотную к панели. */
+        -webkit-mask-image: linear-gradient(to top, #000 0%, rgba(0, 0, 0, .82) 34%, transparent 100%);
+        mask-image: linear-gradient(to top, #000 0%, rgba(0, 0, 0, .82) 34%, transparent 100%);
+    }
+
+    @supports (backdrop-filter: blur(8px)) or (-webkit-backdrop-filter: blur(8px)) {
+        .filters-dock::before {
+            /* Заливка СПЛОШНАЯ, а не градиент. Тонкость: mask-image гасит
+               и заливку, и backdrop-filter одновременно, поэтому градиент
+               в заливке дал бы двойное ослабление — сверху полосы размытие
+               уже работало бы, а затемнение ещё нет. Замер это и показал:
+               средняя яркость строки подскакивала с 16 до 92, потому что
+               размытие растаскивало белые «Выбрать» и белый фон между
+               карточками, а гасить их было нечем. Со сплошной заливкой оба
+               эффекта нарастают строго вместе. */
+            background: rgba(0, 0, 0, .72);
+            -webkit-backdrop-filter: blur(6px);
+            backdrop-filter: blur(6px);
+        }
+    }
+
+    /* Кнопка врастает в нижний край: во всю ширину, без скруглений, полей и
+       внешней тени. Нижний padding учитывает «шторку жестов» на iPhone —
+       без него кнопка на всю ширину заезжает под системную полосу. */
+    .filters-dock__button {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+
+        width: 100%;
+        margin: 0;
+        padding: 18px 20px calc(18px + env(safe-area-inset-bottom));
+
+        background: #000;
+        border: none;
+        border-radius: 0;
+
+        color: #fff;
+        font-family: 'Inter-Light', system-ui, sans-serif;
+        font-size: 16px;
+        line-height: 1;
+        white-space: nowrap;
+        cursor: pointer;
+    }
+
+    .filters-dock__button:focus-visible {
+        outline: 2px solid #4a90e2;
+        outline-offset: -4px;
+    }
+
+    /* -------------------- общее для обеих кнопок ------------------------ */
+
+    .filters-trigger__icon {
+        display: inline-flex;
+    }
+
+    .filters-trigger__badge {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-width: 22px;
+        height: 22px;
+        padding: 0 6px;
+        background: #fff;
+        border-radius: 11px;
+        color: #000;
+        font-size: 13px;
+        font-variant-numeric: tabular-nums;
+    }
+
+    /* ---------------------------- затемнение ---------------------------- */
+
+    .filters-backdrop {
+        display: block;
+        position: fixed;
+        inset: 0;
+        z-index: 1150;
+        background: rgba(0, 0, 0, .5);
+        opacity: 0;
+        pointer-events: none;
+        transition: opacity .28s ease;
+    }
+
+    .filters-backdrop.is-open {
+        opacity: 1;
+        pointer-events: auto;
+    }
+
+    /* ------------------------------ шторка ------------------------------ */
+
+    .filters-panel {
+        display: flex;
+        flex-direction: column;
+
+        position: fixed;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        z-index: 1200;
+
+        max-height: 88vh;
+        max-height: 88dvh;
+
+        background: #fff;
+        border-radius: 20px 20px 0 0;
+        box-shadow: 0 -8px 30px rgba(0, 0, 0, .3);
+
+        transform: translateY(100%);
+        /* visibility, а не только transform: у скрытой шторки содержимое не
+           должно ловить фокус при обходе страницы клавишей Tab.
+           Задержка 0.28s держит элемент видимым, пока идёт анимация ухода. */
+        visibility: hidden;
+        transition: transform .28s ease, visibility 0s linear .28s;
+    }
+
+    .filters-panel.is-open {
+        transform: translateY(0);
+        visibility: visible;
+        transition: transform .28s ease, visibility 0s linear 0s;
+    }
+
+    /* --------------------------- шапка шторки --------------------------- */
+
+    .filters-sheet__head {
+        position: relative; /* якорь для полоски-«ручки» */
+        display: grid;
+        grid-template-columns: 1fr auto;
+        align-items: center;
+        gap: 8px;
+        padding: 18px 16px 12px;
+        border-bottom: 1px solid #e6e6e6;
+    }
+
+    /* Полоска-«ручка» вверху — привычный признак того, что панель выехала снизу. */
+    .filters-sheet__grabber {
+        position: absolute;
+        top: 8px;
+        left: 50%;
+        transform: translateX(-50%);
+        width: 40px;
+        height: 4px;
+        background: #d5d5d5;
+        border-radius: 2px;
+    }
+
+    .filters-sheet__title {
+        color: #000;
+        font-family: 'Inter-SemiBold', system-ui, sans-serif;
+        font-size: 18px;
+    }
+
+    .filters-sheet__close {
+        width: 44px;
+        height: 44px;
+        margin: -8px -8px -8px 0;
+        background: none;
+        border: none;
+        color: #000;
+        font-size: 30px;
+        line-height: 1;
+        cursor: pointer;
+    }
+
+    .filters-sheet__close:focus-visible {
+        outline: 2px solid #4a90e2;
+        outline-offset: 2px;
+        border-radius: 8px;
+    }
+
+    /* -------------------------- тело шторки ----------------------------- */
+
+    .filters-sheet__body {
+        display: flex;
+        flex-direction: column;
+        gap: 24px;
+
+        flex: 1 1 auto;
+        padding: 16px;
+        overflow-y: auto;
+        /* Прокрутка не «протекает» на страницу под шторкой. */
+        overscroll-behavior: contain;
+        -webkit-overflow-scrolling: touch;
+    }
+
+    /* Оба <aside> внутри шторки — обычные блоки во всю ширину.
+       В FiltersSearchAir.css у .filters-right стоит `position: sticky
+       !important`, поэтому здесь тоже нужен !important: у селектора из двух
+       классов специфичность выше, и он побеждает. */
+    .filters-panel .filters-left,
+    .filters-panel .filters-right {
+        position: static !important;
+        top: auto;
+        margin: 0;
+        max-height: none;
+        overflow: visible;
+        width: 100%;
+    }
+
+    /* --------------------------- низ шторки ----------------------------- */
+
+    .filters-sheet__foot {
+        display: block;
+        flex: 0 0 auto;
+        padding: 12px 16px calc(12px + env(safe-area-inset-bottom));
+        border-top: 1px solid #e6e6e6;
+        background: #fff;
+    }
+
+    .filters-sheet__apply {
+        width: 100%;
+        min-height: 52px;
+        background: #000;
+        border: none;
+        border-radius: 14px;
+        color: #fff;
+        font-family: 'Inter-Light', system-ui, sans-serif;
+        font-size: 17px;
+        cursor: pointer;
+    }
+
+    .filters-sheet__apply:focus-visible {
+        outline: 2px solid #4a90e2;
+        outline-offset: 3px;
+    }
+
+    /* Страница под открытой шторкой не прокручивается. Правило намеренно
+       лежит внутри медиазапроса: на десктопе класс на <body> никак не
+       влияет, даже если состояние компонента осталось «открыто». */
+    body.filters-sheet-open {
+        overflow: hidden;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .filters-panel,
+    .filters-backdrop,
+    .filters-dock {
+        transition: none !important;
+    }
+}

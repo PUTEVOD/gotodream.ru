@@ -1,0 +1,776 @@
+/* frontend/src/components/styles/S7.responsive.css
+   ---------------------------------------------------------------------------
+   АДАПТИВНЫЙ СЛОЙ СТРАНИЦЫ /s7.
+
+   Файл ДОБАВЛЯЕТСЯ, ничего не заменяет. Подключается ПОСЛЕДНИМ в S7.jsx —
+   порядок важен: правила ниже опираются на то, что стоят позже в каскаде и
+   поэтому побеждают при равной специфичности.
+
+   Почему отдельный файл, а не правка S7.css / FiltersSearchAir.css:
+     * раскладка страницы сейчас размазана по трём местам (grid-column
+       в S7.css, grid-column в FiltersSearchAir.css, gridColumn инлайном
+       в SearchForm.jsx). Собрать её в одном файле дешевле, чем править три
+       и следить, чтобы они не разъехались;
+     * откат = удалить одну строку import. Это важно, пока решение не
+       проверено на реальных устройствах.
+
+   Точки перелома выбраны по содержимому, а не по моделям устройств:
+     >= 1440px  три колонки, рельсы фильтров 240px
+     1200..1439 три колонки, рельсы 200px
+     1024..1199 три колонки, рельсы 180px
+      768..1023 одна колонка, фильтры уезжают в шторку снизу (FiltersPanel)
+      480..767  + форма поиска складывается в столбик, карточка рейса — в две строки
+      < 480     + уменьшенная типографика
+
+   Всё, что относится к шторке фильтров, лежит в FiltersPanel.css.
+
+   `!important` используется в одном месте и помечен в тексте:
+   перекрытие инлайновых style={{gridColumn, gridRow}} из SearchForm.jsx.
+   --------------------------------------------------------------------------- */
+
+/* ===================== 0. Переменные и общая гигиена ====================== */
+
+.main-container {
+    /* Потолок ширины ЦЕНТРАЛЬНОГО БЛОКА, а не всей страницы. Раньше было 68%
+       без потолка: на мониторе 2560px карточка рейса растягивалась на 1740px,
+       и время вылета с ценой оказывались на разных краях экрана.
+       Отключить потолок: --s7-content-max: 100000px. */
+    --s7-content-max: 1180px;
+
+    /* Колонки фильтров и поля страницы заданы в процентах с ограничителями —
+       так они повторяют пропорции оригинала (16% на колонку) и при этом не
+       вырождаются на узких экранах и не разъезжаются на широких.
+       Страница по-прежнему занимает всю ширину окна: max-width у контейнера
+       НЕТ. Ограничивается только содержимое центральной колонки. */
+    --s7-rail: clamp(170px, 16%, 300px);
+    --s7-gap: clamp(16px, 2%, 40px);
+    --s7-pad: clamp(12px, 1.3%, 26px);
+
+    --s7-sticky-top: 16px;
+}
+
+html {
+    /* Safari на iOS сам увеличивает шрифт в альбомной ориентации. */
+    -webkit-text-size-adjust: 100%;
+}
+
+/* Размеры считаются вместе с padding и border. Без этого «100% ширины плюс
+   padding» вылезает за экран — самая частая причина горизонтальной
+   прокрутки на телефоне. */
+*, *::before, *::after {
+    box-sizing: border-box;
+}
+
+img, svg, video, canvas {
+    max-width: 100%;
+}
+
+/* ========================= 1. Каркас страницы ============================ */
+
+/* Раскладка переезжает на именованные области: положение всех блоков видно
+   в одном объявлении, а не собирается из пяти правил в двух файлах.
+
+   Важно: селекторы ниже — потомки (пробел), а не прямые дети (>).
+   Два <aside> обёрнуты в <div class="filters-panel">, и хотя на десктопе у
+   обёртки стоит display:contents (боксы не создаются, дети становятся
+   элементами грида), на подбор селекторов это не влияет:
+   `.main-container > .filters-left` не совпал бы ни с чем. */
+.main-container {
+    display: grid;
+    grid-template-columns: var(--s7-rail) minmax(0, 1fr) var(--s7-rail);
+    /* Было `grid-template-rows: 5vh auto 1fr`. 5vh — это 34px на ноутбуке,
+       а переключателю «в одну сторону / туда-обратно» нужно ~58px, и он
+       вылезал за свой ряд. auto считает высоту по содержимому. */
+    grid-template-rows: auto auto 1fr;
+    grid-template-areas:
+        "flt-left trip flt-right"
+        "flt-left form flt-right"
+        "flt-left list flt-right";
+    column-gap: var(--s7-gap);
+    padding-inline: var(--s7-pad);
+    min-height: 100vh;
+    position: relative;
+}
+
+/* Потолок ширины применяется к содержимому центральной колонки, а не к
+   странице целиком. Колонки фильтров остаются прижатыми к краям окна —
+   ровно как в исходной вёрстке с `grid-template-columns: 16% 68% 16%`. */
+.main-container .trip-type-selector,
+.main-container .search-form,
+.main-container .flight-list-wrapper {
+    width: 100%;
+    max-width: var(--s7-content-max);
+    margin-inline: auto;
+}
+
+.main-container .filters-left       { grid-area: flt-left; }
+.main-container .filters-right      { grid-area: flt-right; }
+.main-container .trip-type-selector { grid-area: trip; }
+.main-container .search-form        { grid-area: form; }
+.main-container .flight-list-wrapper{ grid-area: list; }
+
+@media (min-width: 1024px) {
+    /* Внешний отступ колонок фильтров теперь даёт padding самого контейнера.
+       Собственный margin: 8% сверх него удваивал бы отступ. */
+    .main-container .filters-left,
+    .main-container .filters-right {
+        margin-left: 0;
+        margin-right: 0;
+        top: var(--s7-sticky-top);
+    }
+}
+
+/* ВНИМАНИЕ: не добавляйте сюда `overflow-y: auto`.
+   Опробовано и откачено. Причина: по спецификации CSS Overflow, если одна ось
+   имеет значение `visible`, а другая — `auto` или `scroll`, то `visible`
+   принудительно превращается в `auto`. То есть `overflow-y: auto` включает
+   и горизонтальную прокрутку тоже.
+   За правый край колонки выходит подсказка со временем у крайнего ползунка,
+   за левый — половина кружка нижнего ползунка (он позиционируется
+   `transform: translate(-50%, -50%)` от левого края трека). В результате
+   появлялись обе полосы прокрутки сразу, а левые ползунки обрезались ровно
+   наполовину — то, что выглядело как «padding наезжает на фильтры».
+
+   Если колонка фильтров когда-нибудь станет выше экрана, включать прокрутку
+   надо так — с запасом по горизонтали и без второй полосы:
+
+   .main-container .filters-left,
+   .main-container .filters-right {
+       max-height: calc(100dvh - 2 * var(--s7-sticky-top));
+       padding-inline: 16px;
+       margin-inline: -16px;
+       overflow-y: auto;
+       overflow-x: clip;
+   }
+*/
+
+/* Поле «Пассажиры и класс» — <button> шириной 68%. Текст «1 пассажир,
+   эконом» в неё не помещается, переносится на вторую строку и вылезает
+   за нижний край плашки: у .form-group фиксированная высота. Обрезаем
+   многоточием, как это уже сделано для названий аэропортов. */
+.passenger-input {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* Кнопка «ПОИСК» была выше полей формы, хотя стоит с ними в одном ряду.
+   Причина — две разные формулы в SearchForm.css:
+       .form-group    { height: clamp(64px,  8vh,  92px) }
+       .search-button { height: clamp(64px, 10vh, 110px) }
+   На экране высотой 900px это 72px против 90px. Разница видна тем сильнее,
+   чем выше окно. Привязываем кнопку к той же переменной, что и плашки
+   полей, — теперь высота у них общая по определению. */
+.search-button {
+    height: var(--field-height);
+}
+
+/* Раскладка формы читается из custom properties, если они заданы.
+   Пока в SearchForm.jsx стоят инлайновые style={{gridColumn, gridRow}},
+   правило ни на что не влияет: инлайн сильнее. После правки из раздела 7.1
+   инструкции (замена gridColumn/gridRow на --col/--row) положение полей
+   становится обычным CSS-свойством, которое можно переопределить в
+   медиазапросе без !important. Файл работает в обоих состояниях. */
+.search-form form > * {
+    grid-column: var(--col, auto);
+    grid-row: var(--row, auto);
+}
+
+/* ============================== 2. Шапка ================================= */
+
+.header {
+    gap: 12px;
+    padding: 12px clamp(12px, 2vw, 20px);
+}
+
+.header__center {
+    /* Без min-width:0 flex-элемент отказывается сжиматься и выталкивает
+       переключатель языков за правый край экрана. */
+    min-width: 0;
+    flex: 1 1 auto;
+    justify-content: center;
+    overflow: hidden;
+}
+
+.header__left,
+.header__right {
+    flex: 0 0 auto;
+}
+
+/* 60px плюс letter-spacing 0.3em — это строка шириной ~640px. На экране
+   360px логотип выдавливал всё остальное. clamp() тянет размер от ширины окна. */
+.logo {
+    font-size: clamp(22px, 6.2vw, 60px);
+    letter-spacing: clamp(0.08em, 0.6vw, 0.3em);
+    white-space: nowrap;
+}
+
+.ham {
+    width: clamp(44px, 11vw, 80px);
+    height: auto;
+    flex: 0 0 auto;
+}
+
+.language-options {
+    gap: clamp(8px, 1.5vw, 15px);
+    font-size: clamp(12px, 2.6vw, 16px);
+}
+
+.side-menu {
+    width: min(280px, 82vw);
+    padding-top: max(60px, env(safe-area-inset-top));
+}
+
+/* ===================== 3. Переключатель типа поездки ===================== */
+
+.trip-type-selector {
+    flex-wrap: wrap;
+    gap: 8px 24px;
+    padding: 12px 0;
+}
+
+@media (max-width: 1023.98px) {
+    .trip-type-selector {
+        justify-content: flex-start;
+        gap: 4px 16px;
+    }
+
+    /* Комфортная зона нажатия: 44px — минимум из рекомендаций Apple HIG,
+       48dp — из Material. Сам кружок остаётся 18px, растёт только строка. */
+    .trip-type-selector .filter-item {
+        min-height: 44px;
+    }
+}
+
+/* ================= 4. Одноколоночный режим (< 1024px) =================== */
+
+@media (max-width: 1023.98px) {
+    /* Кнопка «Фильтры» получает собственную строку сетки между формой и
+       выдачей. Первый вариант — плавающая кнопка у нижнего края (FAB) —
+       проверку не прошёл: при прокрутке она садилась поверх кнопки
+       «ПОИСК». Строка над списком не перекрывает ничего и появляется
+       ровно там, где фильтры и нужны; при прокрутке вниз она сворачивается
+       в компактную плашку — см. FiltersPanel.css. */
+    .main-container {
+        grid-template-columns: minmax(0, 1fr);
+        grid-template-rows: auto auto auto 1fr;
+        grid-template-areas:
+            "trip"
+            "form"
+            "fbar"
+            "list";
+        column-gap: 0;
+        /* Запас снизу под нижнюю панель «Фильтры» (.filters-dock): без него
+           она накрывала бы последнюю карточку рейса, докрутить до которой
+           уже нельзя. 72px — высота кнопки, env() — «шторка жестов». */
+        padding-bottom: calc(72px + env(safe-area-inset-bottom));
+    }
+
+    /* Пока раскрыт список формы, нижняя панель убирается: она стоит на
+       отдельном слое и иначе оказалась бы поверх затемнения. */
+    .main-container:has(.airport-suggestions) .filters-dock,
+    .main-container:has(.passenger-dropdown) .filters-dock,
+    .main-container:has(.calendar-popup) .filters-dock {
+        transform: translateY(100%);
+        visibility: hidden;
+    }
+
+    .main-container .filters-fab { grid-area: fbar; }
+
+    .flight-list-wrapper {
+        padding: 8px 0;
+        margin-top: 8px;
+    }
+
+    .search-form {
+        padding: 12px 0;
+    }
+
+    /* Строка фильтра — крупная цель для пальца. */
+    .filter-item {
+        min-height: 44px;
+        padding: 10px 0;
+    }
+
+    /* ---------------------- плашка поля: flex вместо абсолюта ------------
+       В SearchForm.css внутренности поля разложены абсолютным
+       позиционированием в процентах от фиксированной высоты:
+           .form-group       { height: clamp(64px, 8vh, 92px) }
+           .form-group label { position: absolute; top: 22%; left: 5% }
+           .form-group input { position: absolute; top: 58%; width: 68% }
+           .field-error      { position: absolute; bottom: -18px; nowrap }
+
+       Отсюда сразу три следствия:
+         1. поле ввода имеет высоту строки (~22px) при плашке 68–92px —
+            попасть пальцем трудно, промах уходит «в никуда»;
+         2. тексту ошибки некуда встать: он лежит ПОД плашкой и налезает на
+            следующее поле. На десктопе это лечится расширением row-gap у
+            всей формы, но в один столбец такой приём не работает — двигать
+            пришлось бы каждую строку по отдельности;
+         3. любое изменение размера шрифта требует пересчёта процентов.
+
+       В сенсорном диапазоне плашка переписана на flex-колонку: подпись,
+       поле, текст ошибки идут потоком сверху вниз, высота считается по
+       содержимому. Ошибка оказывается ВНУТРИ плашки, ничего не смещая, —
+       второй из двух вариантов, которые вы предложили.
+
+       Абсолютными остаются только всплывающие окна (.airport-suggestions,
+       .passenger-dropdown, .calendar-popup) и иконка (.field-icon): они
+       вне потока и на раскладку плашки не влияют.
+
+       Десктоп не тронут: там раскладка в три колонки и штатный механизм
+       с row-gap работает как задумано. */
+    .form-group {
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        gap: 2px;
+
+        height: auto;
+        min-height: var(--field-height);
+        /* Справа — место под иконку: она стоит на right: 5% и занимает
+           до 34px, поэтому текст не должен заходить в эту зону. */
+        padding: 12px 52px 12px 16px;
+        margin: 0;
+    }
+
+    .form-group label {
+        position: static;
+        top: auto;
+        left: auto;
+        /* Подпись снова кликабельна: у неё есть htmlFor, и нажатие по ней
+           ставит фокус в поле. Зона нажатия вырастает с высоты строки
+           поля до высоты всей плашки. */
+        pointer-events: auto;
+        font-size: 11pt;
+        line-height: 1.15;
+    }
+
+    .form-group input,
+    .passenger-input {
+        position: static;
+        top: auto;
+        left: auto;
+        width: 100%;
+        /* flex: 1 — поле забирает остаток высоты плашки, а не остаётся
+           полоской в 22px. */
+        flex: 1 1 auto;
+        min-height: 28px;
+        padding: 0;
+        line-height: 1.2;
+    }
+
+    /* Текст ошибки — обычный блок внизу плашки. Ни nowrap, ни
+       отрицательного bottom: длинная фраза переносится, плашка растёт. */
+    .field-error {
+        position: static;
+        left: auto;
+        right: auto;
+        bottom: auto;
+        flex: 0 0 auto;
+        margin-top: 2px;
+        white-space: normal;
+        line-height: 1.2;
+        font-size: 10pt;
+    }
+
+    /* Поле с ошибкой подсвечивается рамкой: раньше признаком была только
+       красная подпись под плашкой, которую легко пропустить. */
+    .form-group:has(.field-error) {
+        box-shadow: inset 0 0 0 1px var(--danger);
+    }
+
+    /* Подчёркивание из SearchForm.css теперь дублирует рамку. */
+    .form-group input[aria-invalid="true"] {
+        box-shadow: none;
+    }
+
+    /* Кнопка «поменять местами» — самостоятельная цель нажатия.
+       Ширину не задаём: в трёхколоночном режиме она стоит в узкой
+       колонке 5% и вылезла бы на соседние поля. */
+    .swap-direction {
+        min-height: 44px;
+    }
+}
+
+/* ==================== 5. Форма поиска на узком экране ==================== */
+
+@media (max-width: 767.98px) {
+    /* Высота плашки для узкого экрана. Задана на .search-form, а не на
+       .form-group: от этой же переменной теперь считается высота кнопки
+       «ПОИСК», и обе должны меняться вместе. */
+    .search-form {
+        --field-height: 68px;
+    }
+
+    /* [!important] Положение каждого поля задаётся инлайном в SearchForm.jsx:
+       style={{gridColumn: 1, gridRow: 3}}. Инлайн-стиль сильнее любого
+       селектора; перебить его может только !important в таблице стилей.
+       Как убрать инлайн и обойтись без !important — раздел 7.1 инструкции;
+       правило ниже продолжит работать и после той правки. */
+    .search-form form {
+        grid-template-columns: minmax(0, 1fr) !important;
+        row-gap: 10px;
+    }
+
+    .search-form form > * {
+        grid-column: 1 / -1 !important;
+        grid-row: auto !important;
+    }
+
+    /* Поля встают в порядке DOM: Откуда → ⇄ → Куда → Дата → Возвращение →
+       Пассажиры → Поиск. Порядок совпадает с логикой заполнения.
+       Текст ошибки живёт внутри плашки (см. раздел 4 выше), поэтому
+       раздвигать ряды формы при ошибках больше не нужно. */
+
+    /* Стрелка «поменять местами» между полями, стоящими друг под другом,
+       должна указывать вверх-вниз, а не влево-вправо. */
+    .swap-direction {
+        transform: rotate(90deg);
+    }
+
+    .swap-direction:hover {
+        transform: rotate(270deg);
+    }
+
+    .search-button {
+        width: 100%;
+        font-size: 16pt;
+    }
+
+    .add-flight {
+        width: 100%;
+        min-height: 48px;
+        font-size: 14pt;
+    }
+
+    /* Было right: -3% — крестик вылезал за край экрана. */
+    .remove-flight {
+        right: 8px;
+        font-size: 26px;
+    }
+}
+
+/* ============ 6. Слои и разделение выпадающих окон формы ================= */
+
+/* Задача. В SearchForm.css лежит правило:
+       .form-group:focus-within,
+       .form-group.passengers { z-index: 20; }
+   У поля «Пассажиры и класс» z-index: 20 стоит ПОСТОЯННО, а не только когда
+   оно открыто. Поле с position:relative иz-index создаёт контекст наложения,
+   поэтому z-index: 1000 у списка аэропортов действует только ВНУТРИ своего
+   поля и наружу не выходит. Два поля с одинаковым z-index рисуются в порядке
+   разметки — «Пассажиры» идут ниже по коду и потому оказываются сверху.
+   На десктопе поля стоят в разных колонках и не пересекаются, поэтому дефект
+   виден только в одноколоночном режиме.
+
+   Решение — три уровня вместо двух:
+       20  обычное поле (как было),
+       30  затемняющая подложка,
+       40  поле, у которого раскрыт список.  */
+
+/* Запасной вариант для браузеров без :has() — работает по фокусу.
+   Специфичность 0,3,0 выше, чем у `.form-group.passengers` (0,2,0). */
+.search-form .form-group:focus-within {
+    z-index: 40;
+}
+
+/* Точный вариант: поднимаем поле только когда список действительно раскрыт,
+   а не при любом попадании фокуса в поле. Отдельным правилом, а не через
+   запятую: браузер без :has() отбросил бы весь список селекторов целиком. */
+.search-form .form-group:has(.airport-suggestions),
+.search-form .form-group:has(.passenger-dropdown),
+.search-form .form-group:has(.calendar-popup) {
+    z-index: 40;
+}
+
+@media (max-width: 1023.98px) {
+    /* Подложка. position: fixed, поэтому закрывает весь экран, а не только
+       форму. Живёт внутри контекста наложения .search-form (это grid-элемент
+       с z-index: 100), поэтому перекрывает переключатель типа поездки и
+       список рейсов, но не шапку: у .header z-index: 1000. Поднимать форму
+       выше шапки нельзя — тогда она перекрыла бы выезжающее боковое меню. */
+    .search-form form:has(.airport-suggestions)::before,
+    .search-form form:has(.passenger-dropdown)::before,
+    .search-form form:has(.calendar-popup)::before {
+        content: "";
+        position: fixed;
+        inset: 0;
+        z-index: 30;
+        background: rgba(0, 0, 0, .55);
+        /* pointer-events: none — клик проходит сквозь подложку и попадает
+           в обработчик «клик вне списка», который и закрывает список. */
+        pointer-events: none;
+    }
+
+    @supports (backdrop-filter: blur(3px)) or (-webkit-backdrop-filter: blur(3px)) {
+        .search-form form:has(.airport-suggestions)::before,
+        .search-form form:has(.passenger-dropdown)::before,
+        .search-form form:has(.calendar-popup)::before {
+            background: rgba(0, 0, 0, .4);
+            -webkit-backdrop-filter: blur(3px);
+            backdrop-filter: blur(3px);
+        }
+    }
+
+    /* Раскрытые списки имеют тот же фон #000, что и поля, и сливаются с ними.
+       Приподнимаем фон на пару тонов, усиливаем рамку и тень — окно читается
+       как отдельный слой, а не как продолжение формы. */
+    .airport-suggestions,
+    .passenger-dropdown,
+    .calendar-popup {
+        background: #16171f;
+        border: 1px solid #3c3d4b;
+        box-shadow: 0 18px 44px rgba(0, 0, 0, .75);
+    }
+}
+
+@media (max-width: 767.98px) {
+    /* Ширина 400px не помещается в экран 360px. Раскрываем во всю ширину поля. */
+    .passenger-dropdown,
+    .complex-form .passenger-dropdown {
+        left: 0;
+        right: 0;
+        width: auto;
+        max-width: none;
+        max-height: 70vh;
+        max-height: 70dvh;
+        overflow-y: auto;
+        overscroll-behavior: contain;
+        padding: 16px;
+    }
+
+    .passenger-category {
+        padding-bottom: 14px;
+    }
+
+    .control-btn {
+        width: 44px;
+        height: 44px;
+    }
+
+    .airport-suggestions {
+        max-height: min(320px, 52vh);
+        max-height: min(320px, 52dvh);
+    }
+
+    .airport-option {
+        min-height: 44px;
+        align-items: center;
+    }
+
+    /* ВАЖНО ПРО КАЛЕНДАРЬ.
+       На сенсорном устройстве свой календарь (Calendar.jsx) НЕ открывается
+       вообще — так задумано в DateField.jsx:
+
+           const prefersNativePicker = () =>
+               window.matchMedia?.("(pointer: coarse)").matches;
+           const toggleCalendar = () => {
+               if (prefersNativePicker()) { openNativePicker(); return; }
+               setCalendarOpen((open) => !open);
+           };
+
+       Условие — «грубый указатель» (палец), а НЕ ширина экрана. На телефоне
+       и в режиме эмуляции устройства в DevTools открывается системный
+       календарь через showPicker(). Оформить его нельзя ни одним правилом
+       CSS: это окно рисует операционная система.
+
+       Правила ниже поэтому срабатывают только там, где свой календарь
+       действительно рисуется: узкое окно браузера на десктопе с мышью.
+       Как включить свой календарь и на телефоне — раздел 3 инструкции. */
+    .calendar-popup {
+        left: 0;
+        right: 0;
+        width: auto;
+        padding: 14px;
+    }
+
+    .calendar-nav {
+        width: 44px;
+        height: 44px;
+    }
+
+    .calendar-day {
+        min-height: 40px;
+        font-size: 15px;
+    }
+
+    .calendar-action {
+        min-height: 44px;
+        padding: 8px 18px;
+    }
+
+    .cabin-class-block {
+        flex-wrap: wrap;
+        gap: 10px;
+    }
+
+    .cabin-class-select {
+        min-height: 44px;
+        flex: 1 1 100%;
+    }
+}
+
+/* ========================= 7. Карточка рейса ============================= */
+
+/* Правка сверх адаптива, потому что это ошибка, а не вопрос размера экрана.
+   В шапке FlightList.css описано намерение «три колонки фиксированной
+   ширины», но правила написаны для классов .flight-left / .flight-center /
+   .flight-right, а FlightList.jsx рисует .flight-departure /
+   .flight-duration / .flight-arrival. Правила не применяются ни к чему,
+   и колонки по-прежнему разъезжаются от длины названия города. */
+.flight-main-info {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(96px, 132px) minmax(0, 1fr);
+    align-items: center;
+    /* max-width: 70% отрезал треть уже ограниченной колонки. */
+    max-width: none;
+    gap: 20px;
+}
+
+.flight-departure { text-align: left; }
+.flight-arrival   { text-align: right; }
+
+@media (max-width: 1023.98px) {
+    .flight-card {
+        grid-template-columns: minmax(0, 1fr) 150px;
+        gap: 14px;
+        padding: 16px;
+    }
+
+    .flight-main-info {
+        grid-template-columns: minmax(0, 1fr) minmax(80px, 110px) minmax(0, 1fr);
+        gap: 10px;
+    }
+
+    .select-button {
+        min-height: 44px;
+    }
+}
+
+@media (max-width: 767.98px) {
+    /* Цена уезжает под маршрут: в 360px три колонки маршрута плюс колонка
+       цены дают по 40px на колонку — нечитаемо. */
+    .flight-card {
+        grid-template-columns: minmax(0, 1fr);
+        gap: 12px;
+        padding: 14px;
+        margin: 10px 0;
+    }
+
+    .flight-main-info {
+        grid-template-columns: minmax(0, 1fr) minmax(72px, 96px) minmax(0, 1fr);
+        gap: 8px;
+        align-items: start;
+    }
+
+    .flight-time { font-size: 20px; }
+    .flight-date { font-size: 13px; }
+    .flight-city { font-size: 14px; margin-top: 3px; }
+    .flight-airport { font-size: 12px; }
+    .duration { font-size: 12px; }
+    .airline, .stops { font-size: 11px; }
+
+    /* Цена и кнопка — в одну строку, разнесены по краям. */
+    .flight-price-block {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        text-align: left;
+        padding-top: 12px;
+        border-top: 1px solid #2a2a2a;
+    }
+
+    .flight-price {
+        margin-bottom: 0;
+        font-size: 21px;
+    }
+
+    .select-button {
+        flex: 0 0 auto;
+        min-height: 44px;
+        padding: 10px 22px;
+    }
+}
+
+@media (max-width: 479.98px) {
+    .flight-main-info {
+        grid-template-columns: minmax(0, 1fr) minmax(64px, 80px) minmax(0, 1fr);
+        gap: 6px;
+    }
+
+    .flight-time { font-size: 18px; }
+    .flight-city { font-size: 13px; }
+    .flight-price { font-size: 19px; }
+
+    .flight-card { padding: 12px; }
+}
+
+/* ===================== 8. Слайдеры времени (фильтры) ===================== */
+
+.slider-container,
+.slider-handle {
+    /* Обязательно для Pointer Events на тач-экране: без этого браузер
+       перехватывает вертикальную составляющую жеста как прокрутку страницы
+       и перетаскивание срывается. */
+    touch-action: none;
+}
+
+/* Видимый кружок остаётся 16px, зона нажатия становится 44px.
+   Псевдоэлемент прозрачный и внешний вид не меняет. */
+.slider-handle::before {
+    content: "";
+    position: absolute;
+    inset: -14px;
+    border-radius: 50%;
+}
+
+/* Ползунки получили role="slider" и tabIndex=0 (см. DoubleTimeSlider.jsx),
+   значит им нужен видимый фокус и подсказка при работе с клавиатуры. */
+.slider-handle:focus-visible {
+    outline: 2px solid #4a90e2;
+    outline-offset: 4px;
+}
+
+.slider-handle:focus-visible .tooltip,
+.slider-handle.is-active .tooltip {
+    opacity: 1;
+}
+
+@media (max-width: 1023.98px) {
+    .slider-container {
+        height: 36px;
+    }
+
+    .slider-handle {
+        width: 20px;
+        height: 20px;
+    }
+
+    .slider-handle::before {
+        inset: -12px;
+    }
+}
+
+/* ============== 9. Сенсорные экраны и доступность ======================== */
+
+/* На тач-экране состояния :hover нет — подсказка со временем не появлялась
+   никогда. Показываем её всегда. */
+@media (hover: none) {
+    .tooltip {
+        opacity: 1;
+    }
+
+    .swap-direction:hover {
+        color: inherit;
+    }
+}
+
+/* Фокус с клавиатуры виден на кастомных галочках и радиокнопках:
+   нативный input скрыт, и без этого правила обводке не на чем появиться. */
+.filter-item:focus-within .checkmark,
+.filter-item:focus-within .radiomark {
+    outline: 2px solid #4a90e2;
+    outline-offset: 2px;
+}
