@@ -1,5 +1,5 @@
-import React, { useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import React, { useMemo, useState, useEffect } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
 import Header from "../Header";
 import DoubleTimeSlider from "../ui/DoubleTimeSlider";
 import SearchForm from "./SearchForm";
@@ -33,8 +33,12 @@ const MIN_TIME_WINDOW = 60; // минимальная ширина окна вр
 
 const S7 = () => {
     const navigate = useNavigate();
+    // Параметры, приехавшие с главной страницы. undefined, если на /s7
+    // зашли напрямую.
+    const location = useLocation();
+    const handoff = location.state?.search;
 
-    const [tripType, setTripType] = useState("roundTrip");
+    const [tripType, setTripType] = useState(handoff?.values?.tripType || "roundTrip");
 
     const [departureRange, setDepartureRange] = useState(DEFAULT_RANGES.departureRange);
     const [arrivalRange, setArrivalRange] = useState(DEFAULT_RANGES.arrivalRange);
@@ -54,6 +58,14 @@ const S7 = () => {
     );
 
     const { status, flights, error, fieldErrors, hasSearched, search, retry } = useFlightSearch(filters);
+    // Запрос с главной отправляется один раз при открытии страницы.
+    // Пустой список зависимостей здесь не небрежность, а требование:
+    // search пересоздаётся при смене фильтров, и с ним в зависимостях
+    // эффект перезапускал бы исходный запрос поверх отфильтрованного.
+    useEffect(() => {
+        if (handoff?.payload) search(handoff.payload);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
 
     const activeFilterCount =
         stops.length +
@@ -229,6 +241,7 @@ const S7 = () => {
                         tripType={tripType}
                         isSubmitting={status === "loading"}
                         serverFieldErrors={fieldErrors}
+                        initialValues={handoff?.values}
                     />
 
                     <div className="flight-list-wrapper">

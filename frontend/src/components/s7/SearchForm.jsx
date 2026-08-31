@@ -39,27 +39,35 @@ function pluralPassengers(n) {
  * @param {boolean}  isSubmitting      запрос выполняется, кнопка блокируется
  * @param {object}   serverFieldErrors ошибки валидации от бэкенда: { "itinerary.0.origin": "..." }
  */
-const SearchForm = ({ onSearch, tripType = TRIP_TYPES.ROUND_TRIP, isSubmitting = false, serverFieldErrors }) => {
-    const [segments, setSegments] = useState([emptySegment()]);
-    const [returnDate, setReturnDate] = useState("");
-    const [passengers, setPassengers] = useState(EMPTY_PASSENGERS);
-    const [cabinClass, setCabinClass] = useState(CABIN_CLASSES.ECONOMY);
-
+const SearchForm = ({ onSearch,
+                        tripType = TRIP_TYPES.ROUND_TRIP,
+                        isSubmitting = false,
+                        serverFieldErrors,
+                        initialValues,
+                    }) => {
+    // Значения из initialValues попадают в состояние ТОЛЬКО при монтировании:
+    // так работает аргумент useState. Это ровно то, что нужно — форма должна
+    // подхватить перенос с главной один раз, а дальше жить своей жизнью.
+    const [segments, setSegments] = useState(
+        initialValues?.segments?.length ? initialValues.segments : [emptySegment()],
+    );
+    const [returnDate, setReturnDate] = useState(initialValues?.returnDate || "");
+    const [passengers, setPassengers] = useState(initialValues?.passengers || EMPTY_PASSENGERS);
+    const [cabinClass, setCabinClass] = useState(initialValues?.cabinClass || CABIN_CLASSES.ECONOMY);
+    // const [segments, setSegments] = useState([emptySegment()]);
+    // const [returnDate, setReturnDate] = useState("");
+    // const [passengers, setPassengers] = useState(EMPTY_PASSENGERS);
+    // const [cabinClass, setCabinClass] = useState(CABIN_CLASSES.ECONOMY);
     const [showPassengers, setShowPassengers] = useState(false);
     const [wasSubmitted, setWasSubmitted] = useState(false);
-
     const passengersTriggerRef = useRef(null);
-
     const minDate = useMemo(() => todayISO(), []);
     const maxDate = useMemo(() => addDaysISO(minDate, LIMITS.MAX_DAYS_AHEAD), [minDate]);
-
     const formState = useMemo(
         () => ({ tripType, segments, returnDate, passengers, cabinClass }),
         [tripType, segments, returnDate, passengers, cabinClass]
     );
-
     const { ok, errors } = useMemo(() => validateSearchForm(formState), [formState]);
-
     // Ошибки бэкенда приходят с ключами itinerary.N.field — приводим к ключам формы.
     const mappedServerErrors = useMemo(() => {
         if (!serverFieldErrors) return {};
@@ -119,7 +127,11 @@ const SearchForm = ({ onSearch, tripType = TRIP_TYPES.ROUND_TRIP, isSubmitting =
         event.preventDefault();
         setWasSubmitted(true);
         if (!ok || isSubmitting) return;
-        onSearch(buildSearchPayload(formState));
+        // Второй аргумент — состояние формы как есть. Существующий вызов на
+        // /s7 выглядит как search(payload) и лишний аргумент просто
+        // игнорирует, так что правка обратно совместима.
+        onSearch(buildSearchPayload(formState), formState);
+        // onSearch(buildSearchPayload(formState));
     };
 
     /* ------------------------------- разметка ------------------------------ */

@@ -1,0 +1,390 @@
+/* frontend/src/components/styles/HomePage.css
+   Раскладка и оформление главной страницы.
+
+   Всё завёрнуто в .gtd-page. Это не косметика, а защита: в проекте уже есть
+   глобальные правила из S7.css (в частности body { background: #fff }), они
+   грузятся на каждой странице, потому что App.js импортирует S7 статически.
+   Фон, шрифт и цвет текста заданы на обёртке, а не на body, — тогда порядок
+   подключения файлов перестаёт иметь значение.
+
+   Разделы:
+     1. Каркас страницы и общие примитивы
+     2. Первый экран (hero)
+     3. Разделы-плитки
+     4. О компании
+     5. Принципы
+     6. Адаптив
+*/
+
+/* ================= 1. Каркас страницы и общие примитивы ================= */
+
+.gtd-page {
+    min-height: 100vh;
+    min-height: 100dvh;
+    background: var(--gtd-bg);
+    color: var(--gtd-text-2);
+    font-family: var(--gtd-font);
+    font-weight: 400;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    /* Дуга глобуса шире окна. Без этого появляется горизонтальная прокрутка. */
+    overflow-x: clip;
+}
+
+/* Запасной вариант для браузеров без overflow: clip (Safari < 16).
+   hidden отличается тем, что делает блок контейнером прокрутки, но здесь
+   внутри нет ничего прилипающего, поэтому побочных эффектов нет. */
+@supports not (overflow: clip) {
+    .gtd-page { overflow-x: hidden; }
+}
+
+.gtd-page *,
+.gtd-page *::before,
+.gtd-page *::after {
+    box-sizing: border-box;
+}
+
+/* Колонка контента. Один класс на все секции — ширина и поля описаны в
+   токенах и меняются в одном месте. */
+.gtd-container {
+    width: var(--gtd-content);
+    margin-inline: auto;
+}
+
+.gtd-section {
+    margin-top: var(--gtd-section-gap);
+}
+
+/* Надзаголовок секции: «РАЗДЕЛЫ», «ПОДДЕРЖКА». */
+.gtd-eyebrow {
+    font-size: 13px;
+    line-height: 16px;
+    letter-spacing: var(--gtd-track-eyebrow);
+    text-transform: uppercase;
+    color: var(--gtd-muted);
+}
+
+.gtd-h2 {
+    margin: 0;
+    font-size: clamp(26px, 2.2vw, 32px);
+    line-height: 1.2;
+    font-weight: 400;
+    color: var(--gtd-text-1);
+}
+
+.gtd-page a {
+    color: var(--gtd-text-2);
+    text-decoration: none;
+    transition: color 200ms;
+}
+
+.gtd-page a:hover {
+    color: var(--gtd-accent);
+}
+
+.gtd-page a:focus-visible,
+.gtd-page button:focus-visible {
+    outline: 2px solid var(--gtd-accent);
+    outline-offset: 3px;
+    border-radius: 4px;
+}
+
+/* ======================= 2. Первый экран (hero) ======================= */
+
+.gtd-hero {
+    position: relative;
+    padding-top: 56px;
+    /* Видимая часть дуги минус зона, где контент лежит поверх глобуса.
+       92px — величина перекрытия из макета (глобус начинается на 372px,
+       контент заканчивается на 464px). */
+    padding-bottom: max(64px, calc(var(--gtd-hero-arc) - 92px));
+}
+
+/* Обрезка дуги вынесена в отдельный слой, а не поставлена на саму секцию.
+   Если написать .gtd-hero { overflow: hidden }, вместе с глобусом обрежется
+   и список аэропортов, и календарь, и список пассажиров — они выходят за
+   нижнюю границу секции ровно так же, как дуга. */
+.gtd-hero__backdrop {
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+    overflow: hidden;
+    pointer-events: none;
+}
+
+/* Глобус прижат не к верхней границе секции, а к нижней: тогда высота
+   видимой дуги постоянна и не зависит от того, насколько выросла форма
+   (ошибки валидации, длинные названия, узкий экран). */
+.gtd-hero__globe {
+    position: absolute;
+    left: 50%;
+    bottom: calc(var(--gtd-hero-arc) - var(--gtd-globe-size));
+    width: var(--gtd-globe-size);
+    transform: translateX(-50%);
+}
+
+.gtd-hero__content {
+    position: relative;
+    z-index: 10;
+}
+
+.gtd-hero__title {
+    margin: 0;
+    font-size: clamp(26px, 2.8vw, 40px);
+    line-height: 1.2;
+    font-weight: 400;
+    letter-spacing: -0.01em;
+    text-align: center;
+    text-wrap: balance;
+    color: var(--gtd-text-1);
+}
+
+.gtd-hero__form {
+    width: var(--gtd-content);
+    margin: 40px auto 0;
+}
+
+/* Стеклянная панель. Блик по верхней кромке — отдельный псевдоэлемент, а не
+   border-top: градиент вдоль кромки границей не выразить. */
+.gtd-panel {
+    position: relative;
+    margin-top: 16px;
+    padding: 24px;
+    border-radius: var(--gtd-radius-lg);
+    background: var(--gtd-glass-bg);
+    border: 1px solid var(--gtd-glass-border);
+    backdrop-filter: blur(var(--gtd-glass-blur));
+    -webkit-backdrop-filter: blur(var(--gtd-glass-blur));
+}
+
+.gtd-panel::before {
+    content: "";
+    position: absolute;
+    inset: 0 0 auto 0;
+    height: 1px;
+    background: linear-gradient(90deg, rgba(255, 255, 255, .28), rgba(255, 255, 255, 0) 62%);
+    pointer-events: none;
+}
+
+/* Без backdrop-filter (старый Firefox, включённая экономия ресурсов)
+   прозрачная панель на фоне контура глобуса читается плохо — подставляем
+   непрозрачную заливку. */
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+    .gtd-panel { background: rgba(17, 20, 23, .92); }
+}
+
+.gtd-hero__advanced {
+    display: flex;
+    justify-content: center;
+    margin-top: 28px;
+    font-size: 14px;
+    line-height: 20px;
+}
+
+/* ========================= 3. Разделы-плитки ========================= */
+
+/* auto-fill вместо repeat(4, 1fr): число колонок вычисляет браузер из
+   минимальной ширины плитки. Одно правило вместо четырёх медиазапросов,
+   и оно не ломается, если плиток станет девять. */
+.gtd-tiles {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(232px, 1fr));
+    gap: 24px;
+    margin-top: 40px;
+}
+
+.gtd-tile {
+    position: relative;
+    display: block;
+    aspect-ratio: 4 / 3;
+    padding: 20px;
+    border-radius: var(--gtd-radius);
+    background: var(--gtd-surface);
+    box-shadow: inset 0 0 0 1px var(--gtd-hairline);
+    color: var(--gtd-text-1);
+    transition: background 200ms;
+}
+
+.gtd-tile__title {
+    font-size: 18px;
+    line-height: 24px;
+    color: var(--gtd-text-1);
+}
+
+.gtd-tile__icon {
+    position: absolute;
+    right: 20px;
+    bottom: 20px;
+    color: var(--gtd-muted);
+    transition: color 200ms, transform 200ms;
+}
+
+.gtd-tile__icon svg {
+    display: block;
+}
+
+/* Металлическая обводка на hover. Приём: градиент заливает псевдоэлемент,
+   маска вырезает из него внутреннюю часть, остаётся рамка в 1px.
+   Через border так нельзя — border не принимает градиент. */
+.gtd-tile::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    padding: 1px;
+    background: var(--gtd-metal);
+    -webkit-mask: linear-gradient(#000, #000) content-box, linear-gradient(#000, #000);
+    mask: linear-gradient(#000, #000) content-box, linear-gradient(#000, #000);
+    -webkit-mask-composite: xor;
+    mask-composite: exclude;
+    opacity: 0;
+    transition: opacity 200ms;
+    pointer-events: none;
+}
+
+.gtd-tile--link:hover {
+    background: var(--gtd-surface-2);
+}
+
+.gtd-tile--link:hover::after,
+.gtd-tile--link:focus-visible::after {
+    opacity: 1;
+}
+
+.gtd-tile--link:hover .gtd-tile__icon {
+    color: var(--gtd-accent);
+    transform: translateY(-4px);
+}
+
+/* Плитка без маршрута. Визуально не отличается от рабочей (так в макете),
+   но не притворяется ссылкой: нет курсора-руки и реакции на наведение. */
+.gtd-tile--soon {
+    cursor: default;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .gtd-tile,
+    .gtd-tile::after,
+    .gtd-tile__icon {
+        transition: none;
+    }
+}
+
+/* =========================== 4. О компании =========================== */
+
+.gtd-about {
+    display: grid;
+    grid-template-columns: 5fr 7fr;
+    gap: 24px;
+    align-items: start;
+}
+
+.gtd-about__text p {
+    margin: 24px 0 0;
+    font-size: 15px;
+    line-height: 22px;
+    text-wrap: pretty;
+}
+
+.gtd-about__text p + p {
+    margin-top: 20px;
+    color: var(--gtd-muted);
+}
+
+.gtd-about__globe {
+    display: flex;
+    justify-content: center;
+}
+
+.gtd-about__globe > * {
+    width: min(420px, 100%);
+}
+
+/* ============================ 5. Принципы ============================ */
+
+.gtd-principles {
+    display: grid;
+    grid-template-columns: 1fr 1px 1fr 1px 1fr;
+    gap: 40px;
+    align-items: stretch;
+}
+
+.gtd-principle__title {
+    margin-top: 20px;
+    font-size: 18px;
+    line-height: 24px;
+    color: var(--gtd-text-1);
+}
+
+.gtd-principle p {
+    margin: 8px 0 0;
+    font-size: 15px;
+    line-height: 22px;
+}
+
+.gtd-principle svg {
+    display: block;
+    color: var(--gtd-muted);
+}
+
+.gtd-divider {
+    background: linear-gradient(180deg, #4A525A, #EEF3F7, #8A939B);
+}
+
+/* ============================= 6. Адаптив ============================= */
+
+/* Точки перелома выбраны по содержимому, а не по моделям устройств.
+
+   900px — момент, когда колонка текста «О компании» (5fr от 1200px это
+   примерно 480px) сжимается настолько, что абзац рвётся на строки по
+   4–5 слов, а глобус рядом становится меньше 300px и подписи городов
+   начинают наезжать друг на друга.
+
+   560px — момент, когда три принципа в столбик уже стоят, а разделители
+   между ними перестают что-либо разделять по горизонтали. */
+
+@media (max-width: 900px) {
+    .gtd-about {
+        grid-template-columns: 1fr;
+        gap: 40px;
+    }
+
+    /* Глобус уходит наверх: иначе он оказывается «после» текста и на
+       телефоне читатель долистывает до картинки уже потеряв контекст. */
+    .gtd-about__globe {
+        order: -1;
+    }
+
+    .gtd-principles {
+        grid-template-columns: 1fr;
+        gap: 32px;
+    }
+
+    /* Разделитель разворачивается из вертикального в горизонтальный:
+       направление градиента и роли высоты/ширины меняются местами. */
+    .gtd-divider {
+        height: 1px;
+        background: linear-gradient(90deg, #4A525A, #EEF3F7, #8A939B);
+    }
+}
+
+@media (max-width: 560px) {
+    .gtd-tiles {
+        grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+        gap: 12px;
+    }
+
+    .gtd-tile {
+        padding: 14px;
+    }
+
+    .gtd-tile__icon {
+        right: 14px;
+        bottom: 14px;
+    }
+
+    .gtd-tile__icon svg {
+        width: 36px;
+        height: 36px;
+    }
+}

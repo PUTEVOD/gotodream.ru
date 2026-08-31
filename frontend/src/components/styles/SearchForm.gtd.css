@@ -1,0 +1,423 @@
+/* frontend/src/components/styles/SearchForm.gtd.css
+   Тёмная тема формы поиска для главной страницы.
+
+   ЧТО ЭТО ТАКОЕ И ПОЧЕМУ ИМЕННО ТАК.
+
+   На главной работает тот же компонент SearchForm, что и на /s7. Не копия,
+   не «облегчённая версия для витрины» — тот же файл. Причина простая: форма
+   несёт валидацию, справочник аэропортов, склонения, сборку payload и
+   разбор ошибок сервера. Вторая форма означала бы вторую реализацию всего
+   этого, и расходиться они начали бы с первой же правки.
+
+   Отсюда и способ оформления: не переписывать SearchForm.css, а перекрыть
+   его сверху в пределах .gtd-hero. SearchForm.css написан аккуратно —
+   цвета, высота поля и радиус вынесены в переменные на .search-form,
+   поэтому большая часть темы это восемь строк раздела 1. Остальное —
+   геометрия: макет требует другой раскладки внутри плашки.
+
+   ВАЖНО О СПЕЦИФИЧНОСТИ. Все селекторы здесь начинаются с .gtd-hero.
+   Это не стилистика, а необходимость: S7.css грузится на каждой странице
+   (App.js импортирует S7 статически) и порядок файлов в сборке зависит от
+   графа импортов. Полагаться на «мой файл идёт позже» нельзя — выигрыш
+   обеспечивается специфичностью, которая от порядка не зависит.
+
+   Разделы:
+     1. Переменные темы
+     2. Сетка формы
+     3. Плашка поля
+     4. Иконка поля
+     5. Кнопка «поменять местами»
+     6. Кнопка поиска
+     7. Ошибки
+     8. Выпадающие окна
+     9. Переключатель типа поездки
+    10. Узкий экран
+*/
+
+/* ========================= 1. Переменные темы ========================= */
+
+.gtd-hero .search-form {
+    --field-bg: var(--gtd-surface);
+    --field-height: 72px;
+    --text: var(--gtd-text-1);
+    --text-muted: var(--gtd-text-2);
+    --text-dim: var(--gtd-muted);
+    --surface-raised: var(--gtd-line);
+    --focus: var(--gtd-accent);
+    --danger: var(--gtd-danger);
+    --radius: var(--gtd-radius);
+
+    /* S7.css задаёт .search-form { padding: 2%; grid-column: 2/3 }.
+       Вне грида страницы /s7 колоночные правила безвредны, а padding —
+       нет: он сдвинул бы форму внутри стеклянной панели. */
+    padding: 0;
+    font-family: var(--gtd-font);
+}
+
+/* =========================== 2. Сетка формы =========================== */
+
+/* Колонки (30% 5% 30% 5% 30%) уже заданы в SearchForm.css и совпадают с
+   макетом — трогать нечего. Добавляется только пустой ряд-распорка 16px
+   между двумя рядами полей.
+
+   row-gap НЕ перезаписывается фиксированным значением: SearchForm.jsx
+   вешает на форму класс has-field-errors, и через переменную --row-gap
+   зазор расширяется под подписи ошибок. Перебить это числом означало бы
+   молча сломать чужой рабочий механизм. */
+.gtd-hero .search-form form {
+    grid-template-rows: auto 16px auto;
+    align-items: start;
+}
+
+/* ========================== 3. Плашка поля ========================== */
+
+/* В SearchForm.css подпись и поле ввода спозиционированы абсолютно
+   (top: 22% и top: 58%) внутри плашки переменной высоты. Проценты от
+   переменной высоты — источник постоянных рассинхронов: при 72px подпись
+   встаёт на 15.8px, а в макете она на 14px, и так по каждому элементу.
+   Здесь плашка переведена на flex-колонку: подпись и значение идут потоком,
+   отступы заданы в пикселях ровно так, как нарисовано. */
+.gtd-hero .search-form .form-group {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 2px;
+    height: var(--field-height);
+    margin: 0;
+    /* Справа оставлено место под иконку: 16px поле + 20px иконка + 10px. */
+    padding: 14px 46px 14px 16px;
+    background: var(--field-bg);
+    border-radius: var(--radius);
+    box-shadow: inset 0 0 0 1px var(--gtd-hairline);
+}
+
+/* Только прямой потомок: подписи внутри выпадающих окон (список пассажиров,
+   календарь) должны остаться обычными подписями. */
+.gtd-hero .search-form .form-group > label {
+    position: static;
+    top: auto;
+    left: auto;
+    font-family: var(--gtd-font);
+    font-size: 12px;
+    line-height: 16px;
+    color: var(--gtd-muted);
+    /* В SearchForm.css подпись выключена из событий, чтобы не мешать клику
+       по полю. При статичном позиционировании она лежит НАД полем и ничего
+       не перекрывает, а htmlFor делает её рабочей целью для клика. */
+    pointer-events: auto;
+    cursor: pointer;
+}
+
+.gtd-hero .search-form .form-group input,
+.gtd-hero .search-form .form-group .passenger-input {
+    position: static;
+    top: auto;
+    left: auto;
+    width: 100%;
+    height: 24px;
+    font-family: var(--gtd-font);
+    /* В макете 18px при ширине окна 1440. Колонка поля — 30% ширины панели,
+       то есть на 1024px она уже 268px: «1 пассажир, эконом» в 18px занимает
+       её почти целиком и упирается в иконку. Размер сделан текучим с теми же
+       18px в верхней точке. */
+    font-size: clamp(15px, 1.25vw, 18px);
+    line-height: 24px;
+    color: var(--text);
+    /* text-overflow без overflow: hidden не работает; в SearchForm.css задано
+       только первое, и для input этого хватает (у него своя обрезка), а для
+       кнопки пассажиров — нет. */
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+}
+
+/* Металлическая обводка активного поля. Градиент нельзя положить в border,
+   поэтому он заливает псевдоэлемент, а маска вырезает середину. Толщина
+   1.5px — как в макете. */
+.gtd-hero .search-form .form-group::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: 2;
+    border-radius: inherit;
+    padding: 1.5px;
+    background: var(--gtd-metal);
+    -webkit-mask: linear-gradient(#000, #000) content-box, linear-gradient(#000, #000);
+    mask: linear-gradient(#000, #000) content-box, linear-gradient(#000, #000);
+    -webkit-mask-composite: xor;
+    mask-composite: exclude;
+    opacity: 0;
+    transition: opacity 150ms;
+    pointer-events: none;
+}
+
+.gtd-hero .search-form .form-group:focus-within::before {
+    opacity: 1;
+}
+
+.gtd-hero .search-form .form-group:focus-within > label {
+    color: var(--gtd-accent);
+}
+
+/* Поле с ошибкой. :has() поддерживают все актуальные браузеры; для тех,
+   где его нет, ниже есть запасное правило по aria-invalid. Селекторы
+   разнесены по разным блокам намеренно: браузер, не знающий :has(),
+   отбрасывает весь список селекторов целиком, включая запасной. */
+.gtd-hero .search-form .form-group:has(.field-error) {
+    box-shadow: inset 0 0 0 1px var(--gtd-danger);
+}
+
+.gtd-hero .search-form .form-group input[aria-invalid="true"] {
+    box-shadow: none;   /* нижнюю красную черту из SearchForm.css убираем */
+}
+
+.gtd-hero .search-form .form-group:focus-within {
+    z-index: 40;        /* выше соседних полей, чтобы список не уходил под них */
+}
+
+/* ========================== 4. Иконка поля ========================== */
+
+/* В SearchForm.css размеры иконки заданы в процентах от ширины поля
+   (width: 20%, right: 5%). При колонке 345px это 17px отступа и 34px
+   иконки; в макете — 16px и 20px. Переводим в пиксели: иконка не должна
+   менять размер вместе с шириной колонки. */
+.gtd-hero .search-form .form-group::after {
+    right: 16px;
+    width: 20px;
+    max-width: 20px;
+    height: 20px;
+    opacity: .5;
+}
+
+/* Прозрачная кнопка поверх иконки. Область нажатия шире самой картинки —
+   20px это меньше минимума в 24px, рекомендованного для указателя мыши,
+   и вдвое меньше минимума для пальца. */
+.gtd-hero .search-form .form-group .field-icon {
+    right: 8px;
+    width: 36px;
+    max-width: 36px;
+    height: 36px;
+}
+
+/* ================== 5. Кнопка «поменять местами» ================== */
+
+.gtd-hero .search-form .swap-direction {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    background: var(--gtd-surface-2);
+    box-shadow: inset 0 0 0 1px var(--gtd-hairline-mid);
+    color: var(--gtd-text-2);
+    font-size: 16px;
+}
+
+.gtd-hero .search-form .swap-direction:hover {
+    color: var(--gtd-accent);
+}
+
+/* ========================== 6. Кнопка поиска ========================== */
+
+/* Высота привязана к той же переменной, что и плашки полей. В SearchForm.css
+   у кнопки своя формула clamp(64px, 10vh, 110px) против clamp(64px, 8vh, 92px)
+   у полей — на экране 1080px это 108px против 86px, кнопка выше ряда на 22px. */
+.gtd-hero .search-form .search-button {
+    position: relative;
+    height: var(--field-height);
+    margin: 0;
+    padding: 0;
+    background: transparent;
+    border-radius: var(--radius);
+    color: var(--gtd-accent);
+    font-family: var(--gtd-font);
+    font-size: 14px;
+    font-weight: 500;
+    letter-spacing: var(--gtd-track-button);
+    transition: background 200ms;
+}
+
+.gtd-hero .search-form .search-button::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    padding: 1.5px;
+    background: var(--gtd-metal);
+    -webkit-mask: linear-gradient(#000, #000) content-box, linear-gradient(#000, #000);
+    mask: linear-gradient(#000, #000) content-box, linear-gradient(#000, #000);
+    -webkit-mask-composite: xor;
+    mask-composite: exclude;
+    pointer-events: none;
+}
+
+.gtd-hero .search-form .search-button:hover:not(:disabled) {
+    background: rgba(238, 243, 247, .06);
+}
+
+/* ============================= 7. Ошибки ============================= */
+
+.gtd-hero .search-form .field-error {
+    left: 16px;
+    bottom: -24px;
+    font-family: var(--gtd-font);
+    font-size: 13px;
+    line-height: 18px;
+    color: var(--gtd-danger);
+}
+
+.gtd-hero .search-form .form-summary-error {
+    padding-top: 12px;
+    font-family: var(--gtd-font);
+    font-size: 14px;
+    line-height: 20px;
+    color: var(--gtd-danger);
+}
+
+/* ======================= 8. Выпадающие окна ======================= */
+
+/* Общее правило для всех трёх окон: список аэропортов, список пассажиров,
+   календарь. Окно должно читаться как отдельный слой, а не как продолжение
+   поля, поэтому фон светлее плашки, а не равен ей. */
+.gtd-hero .search-form .airport-suggestions,
+.gtd-hero .search-form .passenger-dropdown,
+.gtd-hero .search-form .calendar-popup {
+    background: var(--gtd-surface-2);
+    border: 1px solid var(--gtd-line);
+    border-radius: var(--gtd-radius);
+    box-shadow: 0 24px 60px rgba(0, 0, 0, .55);
+    color: var(--gtd-text-1);
+    font-family: var(--gtd-font);
+}
+
+/* Поле пассажиров стоит в последней колонке. При left: 0 окно шириной
+   400px вылезает за правый край панели на 55px. */
+.gtd-hero .search-form .form-group.passengers .passenger-dropdown {
+    left: auto;
+    right: 0;
+}
+
+.gtd-hero .search-form .airport-option {
+    color: var(--gtd-text-1);
+    font-family: var(--gtd-font);
+}
+
+.gtd-hero .search-form .airport-option.is-highlighted,
+.gtd-hero .search-form .airport-option:hover {
+    background: rgba(238, 243, 247, .08);
+}
+
+.gtd-hero .search-form .airport-option__code {
+    color: var(--gtd-muted);
+}
+
+.gtd-hero .search-form .control-btn {
+    background: var(--gtd-line);
+    color: var(--gtd-text-1);
+}
+
+/* ================= 9. Переключатель типа поездки ================= */
+
+/* Классы взяты те же, что на /s7 (.trip-type-selector, .filter-item,
+   .radiomark, .trip-type-text). Разметка одинаковая — значит, когда до /s7
+   дойдёт очередь, там не появится третьего варианта переключателя.
+   Правила из S7.css (color: #000, justify-content: center, серая обводка)
+   перекрываются здесь по специфичности. */
+.gtd-hero .trip-type-selector {
+    display: flex;
+    justify-content: flex-start;
+    gap: 32px;
+    padding: 0;
+    color: var(--gtd-text-2);
+    font-size: 14px;
+    line-height: 20px;
+}
+
+.gtd-hero .trip-type-selector .filter-item {
+    gap: 10px;
+    margin: 0;
+    color: var(--gtd-text-2);
+}
+
+.gtd-hero .trip-type-selector .radiomark {
+    width: 16px;
+    height: 16px;
+    min-width: 16px;
+    margin-right: 0;
+    border: 1.5px solid var(--gtd-muted);
+    background: transparent;
+}
+
+.gtd-hero .trip-type-selector input[type="radio"]:checked ~ .radiomark {
+    border-color: var(--gtd-accent);
+    background: transparent;
+}
+
+.gtd-hero .trip-type-selector input[type="radio"]:checked ~ .radiomark::after {
+    width: 8px;
+    height: 8px;
+    background: var(--gtd-accent);
+}
+
+.gtd-hero .trip-type-selector input[type="radio"]:checked ~ .trip-type-text {
+    color: var(--gtd-text-1);
+}
+
+.gtd-hero .trip-type-selector input[type="radio"]:focus-visible ~ .radiomark {
+    outline: 2px solid var(--gtd-accent);
+    outline-offset: 3px;
+}
+
+/* =========================== 10. Узкий экран =========================== */
+
+/* 860px — ширина, при которой колонка поля (30% от ширины панели минус
+   её внутренние отступы) опускается ниже 220px. Значение «Санкт-Петербург»
+   в 18px занимает примерно 150px, плюс отступы и иконка — дальше текст
+   начинает прятаться за многоточие уже на обычных названиях. */
+@media (max-width: 860px) {
+    /* Инлайновые gridColumn/gridRow из SearchForm.jsx сильнее любого
+       селектора, поэтому здесь единственное место с !important во всём
+       наборе файлов. Убрать его можно правкой 7.1 из документа по /s7
+       (перевод раскладки формы на custom properties). */
+    .gtd-hero .search-form form {
+        grid-template-columns: 1fr;
+        grid-template-rows: none;
+        row-gap: 12px;
+    }
+
+    .gtd-hero .search-form form > * {
+        grid-column: 1 !important;
+        grid-row: auto !important;
+    }
+
+    /* Стрелка «поменять местами» между полями, стоящими друг под другом,
+       должна указывать вверх-вниз, а не влево-вправо. */
+    .gtd-hero .search-form .swap-direction {
+        transform: rotate(90deg);
+    }
+
+    .gtd-hero .search-form .swap-direction:hover {
+        transform: rotate(270deg);
+    }
+
+    /* Ошибка уезжает внутрь плашки: в один столбец каждое поле — свой ряд,
+       и подпись под плашкой наезжала бы на следующее поле. */
+    .gtd-hero .search-form .form-group {
+        height: auto;
+        min-height: var(--field-height);
+    }
+
+    .gtd-hero .search-form .field-error {
+        position: static;
+        margin-top: 4px;
+        white-space: normal;
+    }
+
+    .gtd-hero .search-form .form-group.passengers .passenger-dropdown {
+        left: 0;
+        right: 0;
+        width: auto;
+        max-width: none;
+    }
+}
