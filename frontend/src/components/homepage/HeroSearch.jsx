@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import SearchForm from "../s7/SearchForm";
 import Globe from "../ui/Globe";
 import { TRIP_TYPES, TRIP_TYPE_LABELS } from "../search/contract";
-import "../styles/SearchForm.gtd.css";
+import "../../theme/form.css";
 
 /* Первый экран: заголовок, форма поиска, дуга глобуса.
  *

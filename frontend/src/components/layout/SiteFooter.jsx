@@ -21,8 +21,8 @@ const SiteFooter = () => (
         <div className="gtd-container">
             <div className="gtd-footer__cols">
                 <div>
-                    <div className="gtd-footer__brand">GO TO DREAM</div>
-                    <p>Онлайн-сервис путешествий: билеты, отели и туры в одном месте.</p>
+                    <div className="gtd-footer__brand">ООО "ПУТЕВОД" ВТК"</div>
+                    <p>Генеральный директор Ковалев Ю. В.</p>
                 </div>
 
                 <div className="gtd-footer__col">
@@ -36,9 +36,9 @@ const SiteFooter = () => (
                 <div className="gtd-footer__col">
                     <span className="gtd-eyebrow">Поддержка</span>
                     <span>Помощь и вопросы</span>
-                    <span>+7 XXX XXX-XX-XX</span>
-                    <span>XXXX@XXXXXXXXXX.XX</span>
-                    <span>Круглосуточно</span>
+                    <span>+7(902)763-22-06</span>
+                    <span>boss@putevod.net</span>
+                    <span>master@putevod.net    </span>
                 </div>
             </div>
 

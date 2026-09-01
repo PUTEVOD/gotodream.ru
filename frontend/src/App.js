@@ -2,7 +2,6 @@ import React from "react";
 import { BrowserRouter as Router, Route, Routes } from "react-router-dom";
 import HomePage from "./pages/HomePage";
 import S7 from './components/s7/S7';
-import Header from '../src/components/Header';
 
 const App = () => {
   return (

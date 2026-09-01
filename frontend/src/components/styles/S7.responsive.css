@@ -176,51 +176,6 @@ img, svg, video, canvas {
     grid-row: var(--row, auto);
 }
 
-/* ============================== 2. Шапка ================================= */
-
-.header {
-    gap: 12px;
-    padding: 12px clamp(12px, 2vw, 20px);
-}
-
-.header__center {
-    /* Без min-width:0 flex-элемент отказывается сжиматься и выталкивает
-       переключатель языков за правый край экрана. */
-    min-width: 0;
-    flex: 1 1 auto;
-    justify-content: center;
-    overflow: hidden;
-}
-
-.header__left,
-.header__right {
-    flex: 0 0 auto;
-}
-
-/* 60px плюс letter-spacing 0.3em — это строка шириной ~640px. На экране
-   360px логотип выдавливал всё остальное. clamp() тянет размер от ширины окна. */
-.logo {
-    font-size: clamp(22px, 6.2vw, 60px);
-    letter-spacing: clamp(0.08em, 0.6vw, 0.3em);
-    white-space: nowrap;
-}
-
-.ham {
-    width: clamp(44px, 11vw, 80px);
-    height: auto;
-    flex: 0 0 auto;
-}
-
-.language-options {
-    gap: clamp(8px, 1.5vw, 15px);
-    font-size: clamp(12px, 2.6vw, 16px);
-}
-
-.side-menu {
-    width: min(280px, 82vw);
-    padding-top: max(60px, env(safe-area-inset-top));
-}
-
 /* ===================== 3. Переключатель типа поездки ===================== */
 
 .trip-type-selector {
