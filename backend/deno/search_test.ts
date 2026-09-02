@@ -1,5 +1,5 @@
 import { searchRequestSchema } from "./search/schema.ts";
-import { applyFilters, generateOffers } from "./search/flights.ts";
+import { applyFilters, buildFacets, generateOffers } from "./search/flights.ts";
 
 /** Минимальные проверки без внешних зависимостей. */
 function assertEquals<T>(actual: T, expected: T, message = "") {
@@ -100,4 +100,69 @@ Deno.test("сортировка по цене возрастает", () => {
   const offers = applyFilters(generateOffers(parsed), parsed);
   const prices = offers.map((o) => o.price);
   assertEquals(prices, [...prices].sort((a, b) => a - b));
+});
+
+/* --------------------------- фасеты фильтров --------------------------- */
+
+Deno.test("фасет авиакомпаний перечисляет только компании из выдачи", () => {
+  const parsed = searchRequestSchema.parse(validRequest());
+  const generated = generateOffers(parsed);
+  const facets = buildFacets(generated, parsed);
+
+  const present = new Set(generated.map((o) => o.airline));
+  assertEquals(facets.airlines.every((a) => present.has(a.value)), true);
+  assertEquals(facets.airlines.length, present.size);
+  assertEquals(
+    facets.airlines.reduce((sum, a) => sum + a.count, 0),
+    generated.length,
+    "сумма счётчиков должна покрывать всю выдачу",
+  );
+});
+
+Deno.test("фасет авиакомпаний не схлопывается при выборе одной компании", () => {
+  const base = searchRequestSchema.parse(validRequest());
+  const generated = generateOffers(base);
+  const full = buildFacets(generated, base);
+  assertExists(full.airlines[0]);
+
+  const narrowed = searchRequestSchema.parse({
+    ...validRequest(),
+    filters: { sortType: "cheapest", airlines: [full.airlines[0].value] },
+  });
+
+  // Выдача сузилась до одной компании...
+  const offers = applyFilters(generateOffers(narrowed), narrowed);
+  assertEquals(offers.every((o) => o.airline === full.airlines[0].value), true);
+  // ...а список в фильтре остался прежним, иначе снять выбор было бы не с чем.
+  assertEquals(
+    buildFacets(generateOffers(narrowed), narrowed).airlines.map((a) => a.value),
+    full.airlines.map((a) => a.value),
+  );
+});
+
+Deno.test("фасет учитывает остальные фильтры", () => {
+  const parsed = searchRequestSchema.parse({
+    ...validRequest(),
+    filters: { sortType: "cheapest", stops: [0] },
+  });
+  const generated = generateOffers(parsed);
+  const facets = buildFacets(generated, parsed);
+  const direct = generated.filter((o) => o.stops === 0);
+
+  assertEquals(
+    facets.airlines.reduce((sum, a) => sum + a.count, 0),
+    direct.length,
+    "счётчики должны считаться по выдаче с учётом фильтра пересадок",
+  );
+});
+
+Deno.test("отмеченная компания остаётся в списке даже с нулевым счётчиком", () => {
+  const parsed = searchRequestSchema.parse({
+    ...validRequest(),
+    filters: { sortType: "cheapest", airlines: ["Авиакомпания, которой нет в выдаче"] },
+  });
+  const facets = buildFacets(generateOffers(parsed), parsed);
+  const row = facets.airlines.find((a) => a.value === "Авиакомпания, которой нет в выдаче");
+  assertExists(row, "строка отмеченной компании должна остаться");
+  assertEquals(row?.count, 0);
 });

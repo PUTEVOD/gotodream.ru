@@ -19,7 +19,10 @@
     --text-muted: #c9c9c9;
     --text-dim: #8f9a97;
     --surface-raised: #2d2e3a;
-    --focus: #4a90e2;
+    /* Запасное значение — на случай, если файл подключён без слоя токенов
+       (theme/tokens.css). Внутри .gtd-theme побеждает --gtd-focus-ring, то
+       есть акцент темы; системный синий не появляется нигде. */
+    --focus: var(--gtd-focus-ring, #4a90e2);
     --danger: #ff6b6b;
     --radius: 16px;
 }

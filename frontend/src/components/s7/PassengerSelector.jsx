@@ -105,19 +105,29 @@ const PassengerSelector = ({
 
                 {error && <div className="field-error">{error}</div>}
 
-                {/*<div className="cabin-class-block">*/}
-                {/*    <label className="category-title" htmlFor="cabin-class">Класс обслуживания</label>*/}
-                {/*    <select*/}
-                {/*        id="cabin-class"*/}
-                {/*        className="cabin-class-select"*/}
-                {/*        value={cabinClass}*/}
-                {/*        onChange={(e) => onCabinClassChange(e.target.value)}*/}
-                {/*    >*/}
-                {/*        {Object.entries(CABIN_CLASS_LABELS).map(([value, label]) => (*/}
-                {/*            <option key={value} value={value}>{label}</option>*/}
-                {/*        ))}*/}
-                {/*    </select>*/}
-                {/*</div>*/}
+                {/* Выбор класса обслуживания.
+
+                    Блок был закомментирован, и из-за этого поле, подписанное
+                    «Пассажиры и класс», показывало класс («1 пассажир,
+                    эконом»), но изменить его было негде: на главной — вообще
+                    никак, на /s7 — только через фильтр в боковой колонке,
+                    который к форме отношения не имеет и отправляется в
+                    запросе отдельным параметром. Возвращён: подпись поля
+                    обещает выбор класса, значение уходит в payload
+                    (buildSearchPayload), обработчик уже был передан пропом. */}
+                <div className="cabin-class-block">
+                    <label className="category-title" htmlFor="cabin-class">Класс обслуживания</label>
+                    <select
+                        id="cabin-class"
+                        className="cabin-class-select"
+                        value={cabinClass}
+                        onChange={(event) => onCabinClassChange(event.target.value)}
+                    >
+                        {Object.entries(CABIN_CLASS_LABELS).map(([value, label]) => (
+                            <option key={value} value={value}>{label}</option>
+                        ))}
+                    </select>
+                </div>
 
                 <div className="tariff-section">
                     <div className="tariff-title">Льготные тарифы</div>

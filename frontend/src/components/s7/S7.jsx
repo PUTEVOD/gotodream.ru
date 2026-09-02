@@ -6,7 +6,7 @@ import SearchForm from "./SearchForm";
 import FlightList from "./FlightList";
 import FiltersPanel from "./FiltersPanel";
 import { useFlightSearch } from "../search/useFlightSearch";
-import { CABIN_CLASS_LABELS, SORT_LABELS, STOPS_OPTIONS, AIRLINES, TRIP_TYPE_LABELS } from "../search/contract";
+import { CABIN_CLASS_LABELS, SORT_LABELS, STOPS_OPTIONS, TRIP_TYPE_LABELS } from "../search/contract";
 import "../../theme/tokens.css";        // переменные — первыми
 import "../styles/S7.css";
 import "../styles/FiltersSearchAir.css";
@@ -32,8 +32,6 @@ const DEFAULT_RANGES = {
     durationRange: { lower: 30, upper: 720 },
 };
 
-
-const MIN_TIME_WINDOW = 60; // минимальная ширина окна времени вылета, минут
 
 const S7 = () => {
     const navigate = useNavigate();
@@ -61,7 +59,7 @@ const S7 = () => {
         [departureRange, arrivalRange, durationRange, stops, sortType, selectedClasses, selectedAirlines, touched],
     );
 
-    const { status, flights, error, fieldErrors, hasSearched, search, retry } = useFlightSearch(filters);
+    const { status, flights, facets, error, fieldErrors, hasSearched, search, retry } = useFlightSearch(filters);
     // Запрос с главной отправляется один раз при открытии страницы.
     // Пустой список зависимостей здесь не небрежность, а требование:
     // search пересоздаётся при смене фильтров, и с ним в зависимостях
@@ -70,6 +68,17 @@ const S7 = () => {
         if (handoff?.payload) search(handoff.payload);
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
+
+    /* Список авиакомпаний для фильтра: приходит с ответом сервера и описывает
+       ТЕКУЩУЮ выдачу — компании со счётчиком рейсов.
+
+       Отметки, потерявшие смысл после нового поиска, здесь НЕ снимаются
+       автоматически, и это осознанно. Сервер оставляет отмеченную компанию
+       в списке даже с нулевым счётчиком (см. buildFacets), поэтому человек
+       видит строку «Аэрофлот 0» и понимает, почему выдача пуста, — вместо
+       того чтобы фильтр молча резал результаты из строки, которой на экране
+       уже нет. Снять отметку он может сам, в один щелчок. */
+    const airlineFacets = facets.airlines;
 
     const activeFilterCount =
         stops.length +
@@ -96,19 +105,11 @@ const S7 = () => {
         setter((prev) => ({ ...prev, ...patch }));
     };
 
-    // У времени вылета есть дополнительное правило: окно не уже часа,
-    // иначе ползунки схлопываются в точку и выдача всегда пуста.
-    const changeDeparture = (next) => {
-        markTouched("departureRange");
-        setDepartureRange((prev) => {
-            let { lower, upper } = { ...prev, ...next };
-            if (upper - lower < MIN_TIME_WINDOW) {
-                if (next.lower !== undefined) upper = lower + MIN_TIME_WINDOW;
-                else lower = upper - MIN_TIME_WINDOW;
-            }
-            return { lower, upper };
-        });
-    };
+    /* Отдельного обработчика для времени вылета больше нет. Он повторял
+       правило «окно не уже часа», которое слайдер уже применяет сам в
+       commit() — то есть до страницы значения доходили уже приведёнными, и
+       второй расчёт никогда не срабатывал. Правило и его число живут в
+       одном месте: DoubleTimeSlider, MIN_TIME_WINDOW. */
 
     /* ------------------------------ разметка ------------------------------ */
 
@@ -163,8 +164,8 @@ const S7 = () => {
                                         min={0} max={1440} step={5}
                                         lowerValue={departureRange.lower}
                                         upperValue={departureRange.upper}
-                                        onChangeLower={(value) => changeDeparture({lower: value})}
-                                        onChangeUpper={(value) => changeDeparture({upper: value})}
+                                        onChangeLower={(value) => changeRange("departureRange", setDepartureRange)({lower: value})}
+                                        onChangeUpper={(value) => changeRange("departureRange", setDepartureRange)({upper: value})}
                                     />
 
                                     <DoubleTimeSlider
@@ -204,22 +205,37 @@ const S7 = () => {
                                     ))}
                                 </div>
 
-                                <div className="filter-divider"/>
+                                {/* Авиакомпании приходят с ответом сервера
+                                    (facets.airlines) и относятся к текущей
+                                    выдаче. Пока поиска не было, группы нет:
+                                    показывать список компаний, не зная
+                                    маршрута, — значит предлагать фильтр,
+                                    который ничего не найдёт. */}
+                                {airlineFacets.length > 0 && (
+                                    <>
+                                        <div className="filter-divider"/>
 
-                                <div className="filter-group">
-                                    <h3 className="filter-title">Авиакомпании</h3>
-                                    {AIRLINES.map((airline) => (
-                                        <label key={airline} className="filter-item">
-                                            <input
-                                                type="checkbox"
-                                                value={airline}
-                                                checked={selectedAirlines.includes(airline)}
-                                                onChange={toggleIn(setSelectedAirlines)}
-                                            />
-                                            <span className="checkmark"/>{airline}
-                                        </label>
-                                    ))}
-                                </div>
+                                        <div className="filter-group">
+                                            <h3 className="filter-title">Авиакомпании</h3>
+                                            {airlineFacets.map(({ value, count }) => (
+                                                <label
+                                                    key={value}
+                                                    className={`filter-item${count === 0 ? " is-empty" : ""}`}
+                                                >
+                                                    <input
+                                                        type="checkbox"
+                                                        value={value}
+                                                        checked={selectedAirlines.includes(value)}
+                                                        onChange={toggleIn(setSelectedAirlines)}
+                                                    />
+                                                    <span className="checkmark"/>
+                                                    <span className="filter-item__text">{value}</span>
+                                                    <span className="filter-item__count">{count}</span>
+                                                </label>
+                                            ))}
+                                        </div>
+                                    </>
+                                )}
                             </div>
                         </aside>
                     </FiltersPanel>

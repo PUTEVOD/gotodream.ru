@@ -71,7 +71,7 @@ function buildGrid(year, month) {
     );
 }
 
-const Calendar = ({ value, min, max, onSelect, onClose, labelledBy }) => {
+const Calendar = ({ value, min, max, onSelect, onClose, labelledBy, triggerRef }) => {
     const rootRef = useRef(null);
     const gridRef = useRef(null);
 
@@ -101,13 +101,23 @@ const Calendar = ({ value, min, max, onSelect, onClose, labelledBy }) => {
         cell?.focus({ preventScroll: true });
     }, [cursor]);
 
+    /* Закрытие по клику вне календаря.
+     *
+     * triggerRef — плашка поля, из которой календарь открыт. Клики по ней
+     * сюда не относятся: она сама решает, открыть или закрыть (нажатие в
+     * любое место поля открывает календарь, нажатие по иконке переключает).
+     * Без этой проверки два обработчика срабатывали бы подряд — закрыть и
+     * тут же открыть, — и календарь нельзя было бы закрыть иконкой. Тот же
+     * приём применён в PassengerSelector. */
     useEffect(() => {
         const handlePointerDown = (event) => {
-            if (!rootRef.current?.contains(event.target)) onClose();
+            if (rootRef.current?.contains(event.target)) return;
+            if (triggerRef?.current?.contains(event.target)) return;
+            onClose();
         };
         document.addEventListener("mousedown", handlePointerDown);
         return () => document.removeEventListener("mousedown", handlePointerDown);
-    }, [onClose]);
+    }, [onClose, triggerRef]);
 
     const moveCursor = (nextISO) => setCursor(clampISO(nextISO, min, max));
 

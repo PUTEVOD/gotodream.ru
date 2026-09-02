@@ -153,27 +153,53 @@ const toMinutes = (time: string) => {
   return h * 60 + m;
 };
 
+/**
+ * Ключи фильтров, которые можно временно исключить при проверке предложения.
+ * Нужны для фасетов: список авиакомпаний считается по выдаче, отфильтрованной
+ * ВСЕМ, кроме самого фильтра авиакомпаний. Иначе после выбора «Аэрофлот» в
+ * списке осталась бы одна строка — «Аэрофлот», и снять выбор было бы можно,
+ * а сравнить с другими компаниями нет.
+ */
+type FilterKey =
+  | "departureRange"
+  | "arrivalRange"
+  | "durationRange"
+  | "stops"
+  | "airlines"
+  | "cabinClasses";
+
+/** Одно предложение против набора фильтров. skip исключает один фильтр. */
+function matchesFilters(
+  offer: Offer,
+  f: SearchRequest["filters"],
+  skip?: FilterKey,
+): boolean {
+  if (skip !== "departureRange" && f.departureRange) {
+    const dep = toMinutes(offer.departureTime);
+    if (dep < f.departureRange.lower || dep > f.departureRange.upper) return false;
+  }
+  if (skip !== "arrivalRange" && f.arrivalRange) {
+    const arr = toMinutes(offer.arrivalTime);
+    if (arr < f.arrivalRange.lower || arr > f.arrivalRange.upper) return false;
+  }
+  if (skip !== "durationRange" && f.durationRange) {
+    if (offer.durationMinutes < f.durationRange.lower || offer.durationMinutes > f.durationRange.upper) {
+      return false;
+    }
+  }
+  // Пустой массив stops означает «любое количество пересадок».
+  if (skip !== "stops" && f.stops?.length && !f.stops.includes(offer.stops)) return false;
+  if (skip !== "airlines" && f.airlines?.length && !f.airlines.includes(offer.airline)) return false;
+  if (
+    skip !== "cabinClasses" && f.cabinClasses?.length &&
+    !f.cabinClasses.includes(offer.cabinClass as typeof f.cabinClasses[number])
+  ) return false;
+  return true;
+}
+
 export function applyFilters(offers: Offer[], request: SearchRequest): Offer[] {
   const f = request.filters;
-
-  const filtered = offers.filter((offer) => {
-    if (f.departureRange) {
-      const dep = toMinutes(offer.departureTime);
-      if (dep < f.departureRange.lower || dep > f.departureRange.upper) return false;
-    }
-    if (f.arrivalRange) {
-      const arr = toMinutes(offer.arrivalTime);
-      if (arr < f.arrivalRange.lower || arr > f.arrivalRange.upper) return false;
-    }
-    if (f.durationRange) {
-      if (offer.durationMinutes < f.durationRange.lower || offer.durationMinutes > f.durationRange.upper) return false;
-    }
-    // Пустой массив stops означает «любое количество пересадок».
-    if (f.stops?.length && !f.stops.includes(offer.stops)) return false;
-    if (f.airlines?.length && !f.airlines.includes(offer.airline)) return false;
-    if (f.cabinClasses?.length && !f.cabinClasses.includes(offer.cabinClass as typeof f.cabinClasses[number])) return false;
-    return true;
-  });
+  const filtered = offers.filter((offer) => matchesFilters(offer, f));
 
   const comparators: Record<string, (a: Offer, b: Offer) => number> = {
     cheapest: (a, b) => a.price - b.price,
@@ -185,4 +211,52 @@ export function applyFilters(offers: Offer[], request: SearchRequest): Offer[] {
   };
 
   return filtered.sort(comparators[f.sortType] ?? comparators.cheapest);
+}
+
+export interface FacetValue {
+  value: string;
+  count: number;
+}
+
+export interface Facets {
+  airlines: FacetValue[];
+}
+
+/**
+ * Значения, которые имеет смысл предлагать в фильтрах ИМЕННО ДЛЯ ЭТОЙ выдачи.
+ *
+ * Раньше список авиакомпаний был зашит константой на фронте
+ * (contract.js, AIRLINES) и не зависел ни от направления, ни от дат: человек
+ * видел «Уральские авиалинии» на маршруте, где их нет, отмечал и получал
+ * пустую выдачу. Теперь список приходит с ответом.
+ *
+ * Считается по НЕотфильтрованному набору, к которому применены все фильтры,
+ * кроме собственного (см. matchesFilters). Счётчик показывает, сколько
+ * предложений останется, если выбрать только эту компанию.
+ *
+ * Список отсортирован по убыванию количества, при равенстве — по алфавиту:
+ * порядок должен быть устойчивым, иначе строки фильтра прыгают между
+ * запросами.
+ */
+export function buildFacets(offers: Offer[], request: SearchRequest): Facets {
+  const f = request.filters;
+  const airlines = new Map<string, number>();
+
+  for (const offer of offers) {
+    if (!matchesFilters(offer, f, "airlines")) continue;
+    airlines.set(offer.airline, (airlines.get(offer.airline) ?? 0) + 1);
+  }
+
+  // Уже отмеченные компании остаются в списке, даже если под остальные
+  // фильтры не подходит ни одного рейса: иначе строка исчезает вместе с
+  // возможностью снять отметку, и человек не понимает, почему пусто.
+  for (const airline of f.airlines ?? []) {
+    if (!airlines.has(airline)) airlines.set(airline, 0);
+  }
+
+  return {
+    airlines: [...airlines.entries()]
+      .map(([value, count]) => ({ value, count }))
+      .sort((a, b) => b.count - a.count || a.value.localeCompare(b.value, "ru")),
+  };
 }

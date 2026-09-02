@@ -3,6 +3,7 @@ import "../styles/SearchForm.css";
 import PassengerSelector from "./PassengerSelector";
 import AirportField from "./AirportField";
 import DateField from "./DateField";
+import { isFieldSurface } from "./fieldSurface";
 import {
     TRIP_TYPES,
     CABIN_CLASSES,
@@ -61,6 +62,7 @@ const SearchForm = ({ onSearch,
     const [showPassengers, setShowPassengers] = useState(false);
     const [wasSubmitted, setWasSubmitted] = useState(false);
     const passengersTriggerRef = useRef(null);
+    const passengersButtonRef = useRef(null);
     const minDate = useMemo(() => todayISO(), []);
     const maxDate = useMemo(() => addDaysISO(minDate, LIMITS.MAX_DAYS_AHEAD), [minDate]);
     const formState = useMemo(
@@ -120,6 +122,18 @@ const SearchForm = ({ onSearch,
     }, []);
 
     const closePassengers = useCallback(() => setShowPassengers(false), []);
+
+    /* Нажатие по «фону» плашки «Пассажиры и класс» раскрывает список — так же,
+       как у полей аэропорта и даты. Кнопка со значением и иконка сохраняют
+       роль переключателя: они интерактивны и этим обработчиком не ловятся
+       (см. fieldSurface.js). preventDefault оставляет фокус на кнопке, иначе
+       он уходит на контейнер и теряется при закрытии списка. */
+    const handlePassengersSurfaceMouseDown = useCallback((event) => {
+        if (!isFieldSurface(event.target)) return;
+        event.preventDefault();
+        passengersButtonRef.current?.focus();
+        setShowPassengers(true);
+    }, []);
 
     /* ------------------------------ отправка ------------------------------ */
 
@@ -263,10 +277,12 @@ const SearchForm = ({ onSearch,
                     className="form-group passengers"
                     ref={passengersTriggerRef}
                     style={{gridColumn: 5, gridRow: passengersRow}}
+                    onMouseDown={handlePassengersSurfaceMouseDown}
                 >
                     <label id="passengers-label">Пассажиры и класс</label>
                     <button
                         type="button"
+                        ref={passengersButtonRef}
                         className="passenger-input"
                         aria-haspopup="dialog"
                         aria-expanded={showPassengers}

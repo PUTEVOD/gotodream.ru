@@ -1,7 +1,7 @@
 import { z } from "npm:zod@3.23.8";
 import { config } from "./config.ts";
 import { searchRequestSchema } from "./schema.ts";
-import { applyFilters, generateOffers } from "./flights.ts";
+import { applyFilters, buildFacets, generateOffers } from "./flights.ts";
 
 /**
  * Модуль поиска рейсов. Ничего не запускает сам.
@@ -77,12 +77,17 @@ async function handleSearch(request: Request, origin: string | null): Promise<Re
   }
 
   const searchRequest = result.data;
-  const offers = applyFilters(generateOffers(searchRequest), searchRequest);
+  // Полный набор нужен дважды: из него получается выдача и из него же
+  // считаются фасеты — значения, которые имеет смысл предлагать в фильтрах.
+  const generated = generateOffers(searchRequest);
+  const offers = applyFilters(generated, searchRequest);
+  const facets = buildFacets(generated, searchRequest);
 
   return json(
     {
       searchId: crypto.randomUUID(),
       flights: offers,
+      facets,
       meta: {
         total: offers.length,
         currency: searchRequest.currency,

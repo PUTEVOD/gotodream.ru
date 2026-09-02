@@ -133,6 +133,35 @@
     background: var(--gtd-line);
 }
 
+/* Строка фильтра со счётчиком (авиакомпании). Счётчик прижат к правому
+   краю колонки, название занимает всё остальное и обрезается многоточием:
+   «Уральские авиалинии» длиннее колонки на узком экране, и без обрезки
+   число уезжало бы на вторую строку. */
+.gtd-theme .filters-left .filter-item__text,
+.gtd-theme .filters-right .filter-item__text {
+    flex: 1 1 auto;
+    min-width: 0;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+}
+
+.gtd-theme .filters-left .filter-item__count,
+.gtd-theme .filters-right .filter-item__count {
+    flex: 0 0 auto;
+    color: var(--gtd-muted);
+    font-size: 13px;
+    font-variant-numeric: tabular-nums;
+}
+
+/* Ноль рейсов. Строка остаётся кликабельной — именно ею снимается отметка,
+   из-за которой выдача и опустела, — но перестаёт выглядеть как рабочий
+   вариант выбора. */
+.gtd-theme .filters-left .filter-item.is-empty,
+.gtd-theme .filters-right .filter-item.is-empty {
+    color: var(--gtd-muted);
+}
+
 /* ==================== 4. Галочки и радиокнопки ==================== */
 
 /* ОТМЕЧЕННОЕ СОСТОЯНИЕ — СПЛОШНАЯ ЗАЛИВКА, БЕЗ ПТИЧКИ И БЕЗ ТОЧКИ.

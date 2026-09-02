@@ -5,6 +5,7 @@ import {
     normalizeAirportInput,
     suggestAirports,
 } from "../search/airports";
+import { isFieldSurface } from "./fieldSurface";
 
 /**
  * Плавная прокрутка содержимого поля по горизонтали.
@@ -39,6 +40,9 @@ function animateScrollTo(element, target, pxPerSecond = 60) {
  * Почему не нативный <datalist>: им нельзя управлять из кода — список
  * невозможно открыть по клику на иконку, нельзя подсветить пункт клавишами,
  * нельзя показать пояснение. Всё это здесь нужно, поэтому список свой.
+ *
+ * Список раскрывается при нажатии в ЛЮБОЕ место плашки — по подписи, по
+ * значению, по пустому месту рядом, — а не только по полю ввода и иконке.
  *
  * Длинный текст в поле решается тремя способами сразу:
  *   1) выбранный аэропорт хранится в короткой форме «Москва (SVO)»;
@@ -159,11 +163,26 @@ const AirportField = ({
         }
     };
 
+    /* Нажатие по «фону» плашки: подпись, отступы, сама плашка.
+     *
+     * mousedown с preventDefault, а не click: иначе браузер сначала уводит
+     * фокус из поля на контейнер, срабатывает onBlur и список закрывается —
+     * а обработчик открыл бы его снова, и это выглядело бы как мигание.
+     * Интерактивные потомки и содержимое самого списка сюда не попадают,
+     * см. fieldSurface.js. */
+    const handleSurfaceMouseDown = (event) => {
+        if (!isFieldSurface(event.target)) return;
+        event.preventDefault();
+        inputRef.current?.focus();
+        open();
+    };
+
     return (
         <div
             className={`form-group ${variant}`}
             ref={rootRef}
             style={style}
+            onMouseDown={handleSurfaceMouseDown}
             onMouseEnter={handleMouseEnter}
             onMouseLeave={handleMouseLeave}
         >
