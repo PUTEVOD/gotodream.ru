@@ -1,0 +1,1918 @@
+From 68f9454eb5e9f91aaaf904340ab7c82422fdcd33 Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Wed, 2 Sep 2026 13:48:05 +0000
+Subject: [PATCH] =?UTF-8?q?=D0=9A=D0=BB=D0=B0=D1=81=D1=81=D1=8B=20=D0=BE?=
+ =?UTF-8?q?=D0=B1=D1=81=D0=BB=D1=83=D0=B6=D0=B8=D0=B2=D0=B0=D0=BD=D0=B8?=
+ =?UTF-8?q?=D1=8F=20=D0=BA=D0=B0=D0=BA=20=D0=BE=D1=82=D0=B4=D0=B5=D0=BB?=
+ =?UTF-8?q?=D1=8C=D0=BD=D1=8B=D0=B5=20=D0=BF=D1=80=D0=B5=D0=B4=D0=BB=D0=BE?=
+ =?UTF-8?q?=D0=B6=D0=B5=D0=BD=D0=B8=D1=8F;=20=D1=87=D0=B8=D1=81=D1=82?=
+ =?UTF-8?q?=D0=BA=D0=B0=20=D0=B7=D0=B0=D0=B3=D0=BE=D1=82=D0=BE=D0=B2=D0=BA?=
+ =?UTF-8?q?=D0=B8=20CRA?=
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Класс обслуживания (сценарий Б)
+* Генератор выдачи больше не проставляет всем предложениям класс из
+  запроса. Один рейс продаётся в нескольких классах, и каждый из них —
+  отдельный Offer со своей ценой; request.cabinClass стал пожеланием
+  (гарантированно есть в продаже), а не жёстким значением.
+  Раньше фильтр по классу мог только ничего не изменить или обнулить
+  выдачу: замер Москва — Сочи давал 17 / 17 / 0 карточек.
+* Ответ несёт facets.cabinClasses со счётчиками, как у авиакомпаний;
+  считается с исключением собственного фильтра, поэтому список не
+  схлопывается. Порядок — контрактный (эконом, комфорт, бизнес), а не
+  по счётчикам: это шкала, её ступени не переставляют.
+* Боковой фильтр строится по фасету. Класс подписан на каждой карточке:
+  без этого в списке стояли бы внешне одинаковые строки с разной ценой.
+* Шесть новых тестов в search_test.ts.
+
+Чистка заготовки create-react-app
+* Удалены App.css, logo.svg, App.test.js, setupTests.js,
+  reportWebVitals.js, index.css, logo192.png, logo512.png.
+  index.css задавал body шрифт и margin — то же самое другими
+  значениями делает theme/base.css.
+* index.html переписан: lang="ru", свой title и description, комментарии
+  заготовки убраны. manifest.json — данные проекта вместо "React App".
+* Иконки заменены: favicon.svg / favicon.ico / apple-touch-icon.png
+  вместо логотипа React. Знак-заглушка — контур глобуса, тот же, что
+  нарисован на страницах.
+* package.json: убраны неиспользуемые зависимости cra-template,
+  web-vitals, react-icons, date-fns; eslintConfig без react-app/jest;
+  скрипт test убран вместе с тестами (заготовка проверяла ссылку
+  "learn react" и падала, а @testing-library в зависимостях не было).
+* Добавлен .env.production: сборка больше не кладёт рядом карты
+  исходников (полный код проекта в открытом доступе) и не встраивает
+  рантайм-чанк в HTML.
+* README заменён на описание проекта.
+
+Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_01AnWPcNjzYDbnnNWws2zLGB
+---
+ backend/deno/search/flights.ts                | 174 +++++++++++++-----
+ backend/deno/search_test.ts                   |  82 +++++++++
+ frontend/.env.production                      |  25 +++
+ frontend/README.md                            | 146 ++++++++-------
+ frontend/package-lock.json                    |  44 +----
+ frontend/package.json                         |  12 +-
+ frontend/public/apple-touch-icon.png          | Bin 0 -> 6093 bytes
+ frontend/public/favicon.ico                   | Bin 3870 -> 8416 bytes
+ frontend/public/favicon.svg                   |  10 +
+ frontend/public/index.html                    |  51 ++---
+ frontend/public/logo192.png                   | Bin 5347 -> 0 bytes
+ frontend/public/logo512.png                   | Bin 9664 -> 0 bytes
+ frontend/public/manifest.json                 |  25 +--
+ frontend/src/App.css                          |  38 ----
+ frontend/src/App.test.js                      |   8 -
+ frontend/src/components/s7/FlightList.jsx     |  11 ++
+ frontend/src/components/s7/S7.jsx             |  59 +++---
+ .../src/components/search/useFlightSearch.js  |  25 ++-
+ frontend/src/components/styles/FlightList.css |  12 ++
+ .../src/components/styles/S7.responsive.css   |  11 +-
+ frontend/src/index.css                        |  13 --
+ frontend/src/index.js                         |  13 +-
+ frontend/src/logo.svg                         |   1 -
+ frontend/src/reportWebVitals.js               |  13 --
+ frontend/src/setupTests.js                    |   5 -
+ frontend/src/theme/s7.css                     |   3 +-
+ 26 files changed, 454 insertions(+), 327 deletions(-)
+ create mode 100644 frontend/.env.production
+ create mode 100644 frontend/public/apple-touch-icon.png
+ create mode 100644 frontend/public/favicon.svg
+ delete mode 100644 frontend/public/logo192.png
+ delete mode 100644 frontend/public/logo512.png
+ delete mode 100644 frontend/src/App.css
+ delete mode 100644 frontend/src/App.test.js
+ delete mode 100644 frontend/src/index.css
+ delete mode 100644 frontend/src/logo.svg
+ delete mode 100644 frontend/src/reportWebVitals.js
+ delete mode 100644 frontend/src/setupTests.js
+
+diff --git a/backend/deno/search/flights.ts b/backend/deno/search/flights.ts
+index 410a5cf..cfda07e 100644
+--- a/backend/deno/search/flights.ts
++++ b/backend/deno/search/flights.ts
+@@ -1,10 +1,33 @@
+-import type { SearchRequest } from "./schema.ts";
++import { CABIN_CLASSES, type SearchRequest } from "./schema.ts";
+ 
+ /**
+  * Генератор тестовой выдачи.
+  * Заменяется на обращение к GDS / агрегатору; наружу должен остаться тот же тип Offer.
++ *
++ * МОДЕЛЬ ДАННЫХ: ОДИН РЕЙС — НЕСКОЛЬКО ПРЕДЛОЖЕНИЙ.
++ *
++ * Раньше генератор проставлял всем предложениям класс из запроса
++ * (`cabinClass: request.cabinClass`). Из-за этого фильтр «Класс
++ * обслуживания» в интерфейсе не мог работать: отметка запрошенного класса
++ * ничего не меняла, отметка любого другого обнуляла выдачу. Замер на
++ * маршруте Москва — Сочи: без фильтра 17 карточек, «Эконом» 17, «Бизнес» 0.
++ *
++ * Теперь так, как это устроено у перевозчика: на одном и том же рейсе
++ * продаётся несколько классов, и каждый из них — отдельное предложение со
++ * своей ценой. Один рейс даёт от одного до трёх Offer, отличающихся полями
++ * id, cabinClass и price; всё остальное (номер, времена, пересадки) у них
++ * общее.
++ *
++ * Класс из запроса (`request.cabinClass`) перестал быть жёстким значением и
++ * стал пожеланием: он гарантированно есть в продаже на каждом найденном
++ * рейсе, но не мешает показать соседние классы. Поиск бизнеса всегда вернёт
++ * бизнес, поиск эконома — эконом; в обоих случаях в выдаче будет что
++ * фильтровать.
+  */
+ 
++/** "economy" | "comfort" | "business" — порядок берётся из контракта. */
++export type CabinClass = typeof CABIN_CLASSES[number];
++
+ export interface Leg {
+   flightNumber: string;
+   airline: string;
+@@ -21,7 +44,7 @@ export interface Leg {
+ 
+ export interface Offer extends Leg {
+   id: string;
+-  cabinClass: string;
++  cabinClass: CabinClass;
+   price: number;
+   currency: string;
+   seatsLeft: number;
+@@ -55,7 +78,31 @@ const AIRPORT_NAMES: Record<string, { city: string; airport: string }> = {
+   DXB: { city: "Дубай", airport: "Дубай" },
+ };
+ 
+-const CLASS_MULTIPLIER: Record<string, number> = { economy: 1, comfort: 1.6, business: 2.8 };
++const CLASS_MULTIPLIER: Record<CabinClass, number> = { economy: 1, comfort: 1.6, business: 2.8 };
++
++/**
++ * Какие классы продаются на конкретном рейсе.
++ *
++ * Эконом есть всегда, запрошенный класс — тоже (иначе поиск бизнеса мог бы
++ * вернуть выдачу без единого бизнес-предложения). Комфорт и бизнес
++ * добавляются с вероятностью: далеко не каждый рейс их продаёт, и
++ * одинаковый набор классов у всех рейсов выглядел бы ненастоящим.
++ *
++ * Оба random() вызываются безусловно: число обращений к генератору не
++ * должно зависеть от того, что попало в набор, иначе одинаковые запросы
++ * с разным запрошенным классом разъедут всю последовательность.
++ */
++function classesOnSale(random: () => number, requested: CabinClass): CabinClass[] {
++  const hasComfort = random() < 0.6;
++  const hasBusiness = random() < 0.35;
++
++  const sold = new Set<CabinClass>(["economy", requested]);
++  if (hasComfort) sold.add("comfort");
++  if (hasBusiness) sold.add("business");
++
++  // Порядок из контракта: эконом -> комфорт -> бизнес, а не порядок вставки.
++  return CABIN_CLASSES.filter((value) => sold.has(value));
++}
+ 
+ /** Детерминированный PRNG: одинаковый запрос — одинаковая выдача. */
+ function mulberry32(seed: number) {
+@@ -120,29 +167,38 @@ export function generateOffers(request: SearchRequest): Offer[] {
+   const seats = request.passengers.adults + request.passengers.teens + request.passengers.children;
+ 
+   const offers: Offer[] = [];
+-  const count = 12 + Math.floor(random() * 12);
++  /* Рейсов стало меньше, чем было (12–23): каждый теперь разворачивается в
++     два-три предложения, и при прежнем количестве список вырос бы до
++     полусотни карточек. При 8–14 рейсах предложений выходит примерно
++     20–35 — столько же, сколько выдавала прежняя версия. */
++  const count = 8 + Math.floor(random() * 7);
+ 
+   for (let i = 0; i < count; i++) {
+     const legs = request.itinerary.map((s) => buildLeg(random, s.origin, s.destination, s.departureDate));
+     const head = legs[0];
+     const totalDuration = legs.reduce((sum, l) => sum + l.durationMinutes, 0);
+-
+     const basePrice = 3200 + totalDuration * 24 + Math.floor(random() * 6000);
+-    const price = Math.round(
+-      (basePrice * (CLASS_MULTIPLIER[request.cabinClass] ?? 1) * seats +
+-        request.passengers.infants * 1200) / 10,
+-    ) * 10;
+-
+-    offers.push({
+-      ...head,
+-      id: `${head.flightNumber}-${head.date}-${i}`,
+-      legs,
+-      cabinClass: request.cabinClass,
+-      price,
+-      currency: request.currency,
+-      seatsLeft: 1 + Math.floor(random() * 9),
+-      duration: formatDuration(head.durationMinutes),
+-    });
++
++    for (const cabinClass of classesOnSale(random, request.cabinClass)) {
++      const price = Math.round(
++        (basePrice * CLASS_MULTIPLIER[cabinClass] * seats +
++          request.passengers.infants * 1200) / 10,
++      ) * 10;
++
++      offers.push({
++        ...head,
++        // Класс входит в идентификатор: без него три предложения одного
++        // рейса получили бы один id, и React потерял бы key в списке.
++        id: `${head.flightNumber}-${head.date}-${i}-${cabinClass}`,
++        legs,
++        cabinClass,
++        price,
++        currency: request.currency,
++        // Мест в бизнесе всегда меньше, чем в экономе.
++        seatsLeft: 1 + Math.floor(random() * (cabinClass === "business" ? 4 : 9)),
++        duration: formatDuration(head.durationMinutes),
++      });
++    }
+   }
+ 
+   return offers;
+@@ -190,10 +246,9 @@ function matchesFilters(
+   // Пустой массив stops означает «любое количество пересадок».
+   if (skip !== "stops" && f.stops?.length && !f.stops.includes(offer.stops)) return false;
+   if (skip !== "airlines" && f.airlines?.length && !f.airlines.includes(offer.airline)) return false;
+-  if (
+-    skip !== "cabinClasses" && f.cabinClasses?.length &&
+-    !f.cabinClasses.includes(offer.cabinClass as typeof f.cabinClasses[number])
+-  ) return false;
++  if (skip !== "cabinClasses" && f.cabinClasses?.length && !f.cabinClasses.includes(offer.cabinClass)) {
++    return false;
++  }
+   return true;
+ }
+ 
+@@ -220,43 +275,70 @@ export interface FacetValue {
+ 
+ export interface Facets {
+   airlines: FacetValue[];
++  cabinClasses: FacetValue[];
++}
++
++/**
++ * Сколько предложений придётся на каждое значение поля, если выбрать только
++ * его. Считается по набору, к которому применены ВСЕ фильтры, кроме
++ * собственного (аргумент skip), — иначе после выбора одного значения список
++ * схлопнулся бы в одну строку и сравнить варианты стало бы не с чем.
++ *
++ * `selected` — значения, уже отмеченные человеком. Они остаются в списке,
++ * даже если под остальные фильтры не подходит ни одного предложения: иначе
++ * строка исчезает вместе с возможностью снять отметку, и остаётся пустая
++ * выдача без объяснения.
++ */
++function countFacet(
++  offers: Offer[],
++  f: SearchRequest["filters"],
++  skip: FilterKey,
++  pick: (offer: Offer) => string,
++  selected: readonly string[] = [],
++): Map<string, number> {
++  const counts = new Map<string, number>();
++
++  for (const offer of offers) {
++    if (!matchesFilters(offer, f, skip)) continue;
++    const key = pick(offer);
++    counts.set(key, (counts.get(key) ?? 0) + 1);
++  }
++
++  for (const value of selected) {
++    if (!counts.has(value)) counts.set(value, 0);
++  }
++
++  return counts;
+ }
+ 
+ /**
+  * Значения, которые имеет смысл предлагать в фильтрах ИМЕННО ДЛЯ ЭТОЙ выдачи.
+  *
+- * Раньше список авиакомпаний был зашит константой на фронте
+- * (contract.js, AIRLINES) и не зависел ни от направления, ни от дат: человек
+- * видел «Уральские авиалинии» на маршруте, где их нет, отмечал и получал
+- * пустую выдачу. Теперь список приходит с ответом.
++ * Раньше оба списка были зашиты константами на фронте и не зависели ни от
++ * направления, ни от дат: человек видел «Уральские авиалинии» на маршруте,
++ * где их нет, отмечал и получал пустую выдачу. Теперь оба приходят с ответом.
+  *
+- * Считается по НЕотфильтрованному набору, к которому применены все фильтры,
+- * кроме собственного (см. matchesFilters). Счётчик показывает, сколько
+- * предложений останется, если выбрать только эту компанию.
++ * ПОРЯДОК РАЗНЫЙ, И ЭТО НАМЕРЕННО.
+  *
+- * Список отсортирован по убыванию количества, при равенстве — по алфавиту:
+- * порядок должен быть устойчивым, иначе строки фильтра прыгают между
+- * запросами.
++ * Авиакомпании — по убыванию количества, при равенстве по алфавиту:
++ * своего порядка у них нет, а полезнее видеть сверху тех, у кого рейсов
++ * больше. Классы обслуживания — всегда в порядке контракта (эконом →
++ * комфорт → бизнес): это шкала, и переставлять её ступени местами по числу
++ * предложений значит ломать привычную картину.
+  */
+ export function buildFacets(offers: Offer[], request: SearchRequest): Facets {
+   const f = request.filters;
+-  const airlines = new Map<string, number>();
+-
+-  for (const offer of offers) {
+-    if (!matchesFilters(offer, f, "airlines")) continue;
+-    airlines.set(offer.airline, (airlines.get(offer.airline) ?? 0) + 1);
+-  }
+ 
+-  // Уже отмеченные компании остаются в списке, даже если под остальные
+-  // фильтры не подходит ни одного рейса: иначе строка исчезает вместе с
+-  // возможностью снять отметку, и человек не понимает, почему пусто.
+-  for (const airline of f.airlines ?? []) {
+-    if (!airlines.has(airline)) airlines.set(airline, 0);
+-  }
++  const airlines = countFacet(offers, f, "airlines", (o) => o.airline, f.airlines);
++  const cabinClasses = countFacet(offers, f, "cabinClasses", (o) => o.cabinClass, f.cabinClasses);
+ 
+   return {
+     airlines: [...airlines.entries()]
+       .map(([value, count]) => ({ value, count }))
+       .sort((a, b) => b.count - a.count || a.value.localeCompare(b.value, "ru")),
++
++    cabinClasses: CABIN_CLASSES
++      .filter((value) => cabinClasses.has(value))
++      .map((value) => ({ value, count: cabinClasses.get(value) ?? 0 })),
+   };
+ }
+diff --git a/backend/deno/search_test.ts b/backend/deno/search_test.ts
+index 9ec41c6..6389076 100644
+--- a/backend/deno/search_test.ts
++++ b/backend/deno/search_test.ts
+@@ -104,6 +104,88 @@ Deno.test("сортировка по цене возрастает", () => {
+ 
+ /* --------------------------- фасеты фильтров --------------------------- */
+ 
++Deno.test("на одном рейсе продаётся несколько классов", () => {
++  const parsed = searchRequestSchema.parse(validRequest());
++  const offers = generateOffers(parsed);
++
++  const classes = new Set(offers.map((o) => o.cabinClass));
++  assertEquals(classes.size > 1, true, "выдача должна содержать не один класс");
++  assertEquals(new Set(offers.map((o) => o.id)).size, offers.length, "id должны быть уникальны");
++});
++
++Deno.test("запрошенный класс есть в выдаче при любом запросе", () => {
++  for (const cabinClass of ["economy", "comfort", "business"] as const) {
++    const parsed = searchRequestSchema.parse({ ...validRequest(), cabinClass });
++    const offers = generateOffers(parsed);
++    assertEquals(
++      offers.some((o) => o.cabinClass === cabinClass),
++      true,
++      `поиск с cabinClass=${cabinClass} обязан вернуть предложения этого класса`,
++    );
++  }
++});
++
++Deno.test("на одном рейсе цена растёт от эконома к бизнесу", () => {
++  const parsed = searchRequestSchema.parse(validRequest());
++  const order = { economy: 0, comfort: 1, business: 2 };
++
++  const offers = generateOffers(parsed);
++  const byFlight = new Map<string, typeof offers>();
++  for (const offer of offers) {
++    const key = offer.id.replace(/-(economy|comfort|business)$/, "");
++    const list = byFlight.get(key) ?? [];
++    list.push(offer);
++    byFlight.set(key, list);
++  }
++
++  let compared = 0;
++  for (const list of byFlight.values()) {
++    if (list.length < 2) continue;
++    compared++;
++    const sorted = [...list].sort((a, b) => order[a.cabinClass] - order[b.cabinClass]);
++    for (let i = 1; i < sorted.length; i++) {
++      assertEquals(sorted[i].price > sorted[i - 1].price, true, "цена старшего класса должна быть выше");
++    }
++  }
++  assertEquals(compared > 0, true, "должен найтись хотя бы один рейс с несколькими классами");
++});
++
++Deno.test("фильтр по классу оставляет только выбранный и не обнуляет выдачу", () => {
++  for (const cabinClass of ["economy", "comfort", "business"] as const) {
++    const parsed = searchRequestSchema.parse({
++      ...validRequest(),
++      filters: { sortType: "cheapest", cabinClasses: [cabinClass] },
++    });
++    const offers = applyFilters(generateOffers(parsed), parsed);
++    assertEquals(offers.length > 0, true, `фильтр «${cabinClass}» не должен обнулять выдачу`);
++    assertEquals(offers.every((o) => o.cabinClass === cabinClass), true);
++  }
++});
++
++Deno.test("фасет классов идёт в порядке контракта и покрывает всю выдачу", () => {
++  const parsed = searchRequestSchema.parse(validRequest());
++  const generated = generateOffers(parsed);
++  const facets = buildFacets(generated, parsed);
++
++  assertEquals(facets.cabinClasses.map((c) => c.value), ["economy", "comfort", "business"]);
++  assertEquals(
++    facets.cabinClasses.reduce((sum, c) => sum + c.count, 0),
++    generated.length,
++    "сумма счётчиков должна покрывать всю выдачу",
++  );
++});
++
++Deno.test("фасет классов не схлопывается при выборе одного класса", () => {
++  const parsed = searchRequestSchema.parse({
++    ...validRequest(),
++    filters: { sortType: "cheapest", cabinClasses: ["business"] },
++  });
++  assertEquals(
++    buildFacets(generateOffers(parsed), parsed).cabinClasses.map((c) => c.value),
++    ["economy", "comfort", "business"],
++  );
++});
++
+ Deno.test("фасет авиакомпаний перечисляет только компании из выдачи", () => {
+   const parsed = searchRequestSchema.parse(validRequest());
+   const generated = generateOffers(parsed);
+diff --git a/frontend/.env.production b/frontend/.env.production
+new file mode 100644
+index 0000000..69f3611
+--- /dev/null
++++ b/frontend/.env.production
+@@ -0,0 +1,25 @@
++# Настройки сборки для продакшена. Файл читает react-scripts, он попадает в
++# репозиторий (в отличие от .env.production.local, который в .gitignore).
++
++# Карты исходников не кладутся рядом со сборкой.
++#
++# По умолчанию react-scripts генерирует .js.map на каждый бандл и выкладывает
++# их в build/ — это полный исходный код проекта, включая комментарии, доступный
++# любому, кто откроет вкладку Sources. Плюс лишние мегабайты в раздаче.
++# В режиме разработки (npm start) карты работают как раньше: этот файл на него
++# не влияет.
++GENERATE_SOURCEMAP=false
++
++# Рантайм-чанк не встраивается в index.html.
++#
++# По умолчанию react-scripts вставляет его инлайном ради экономии одного
++# запроса. Инлайновый <script> без nonce или hash запрещён любой строгой
++# политикой Content-Security-Policy, а она рано или поздно понадобится сайту,
++# который принимает данные пользователей.
++#
++# Оговорка: один инлайновый скрипт на странице остаётся — тот, что выставляет
++# тему до первой отрисовки (см. public/index.html). Вынести его в файл нельзя,
++# иначе вернётся вспышка чужой темы. Но его содержимое стабильно, и для CSP
++# достаточно одного постоянного hash в политике — в отличие от рантайм-чанка,
++# который меняется на каждой сборке.
++INLINE_RUNTIME_CHUNK=false
+diff --git a/frontend/README.md b/frontend/README.md
+index 58beeac..e9a6c67 100644
+--- a/frontend/README.md
++++ b/frontend/README.md
+@@ -1,70 +1,76 @@
+-# Getting Started with Create React App
+-
+-This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
+-
+-## Available Scripts
+-
+-In the project directory, you can run:
+-
+-### `npm start`
+-
+-Runs the app in the development mode.\
+-Open [http://localhost:3000](http://localhost:3000) to view it in your browser.
+-
+-The page will reload when you make changes.\
+-You may also see any lint errors in the console.
+-
+-### `npm test`
+-
+-Launches the test runner in the interactive watch mode.\
+-See the section about [running tests](https://facebook.github.io/create-react-app/docs/running-tests) for more information.
+-
+-### `npm run build`
+-
+-Builds the app for production to the `build` folder.\
+-It correctly bundles React in production mode and optimizes the build for the best performance.
+-
+-The build is minified and the filenames include the hashes.\
+-Your app is ready to be deployed!
+-
+-See the section about [deployment](https://facebook.github.io/create-react-app/docs/deployment) for more information.
+-
+-### `npm run eject`
+-
+-**Note: this is a one-way operation. Once you `eject`, you can't go back!**
+-
+-If you aren't satisfied with the build tool and configuration choices, you can `eject` at any time. This command will remove the single build dependency from your project.
+-
+-Instead, it will copy all the configuration files and the transitive dependencies (webpack, Babel, ESLint, etc) right into your project so you have full control over them. All of the commands except `eject` will still work, but they will point to the copied scripts so you can tweak them. At this point you're on your own.
+-
+-You don't have to ever use `eject`. The curated feature set is suitable for small and middle deployments, and you shouldn't feel obligated to use this feature. However we understand that this tool wouldn't be useful if you couldn't customize it when you are ready for it.
+-
+-## Learn More
+-
+-You can learn more in the [Create React App documentation](https://facebook.github.io/create-react-app/docs/getting-started).
+-
+-To learn React, check out the [React documentation](https://reactjs.org/).
+-
+-### Code Splitting
+-
+-This section has moved here: [https://facebook.github.io/create-react-app/docs/code-splitting](https://facebook.github.io/create-react-app/docs/code-splitting)
+-
+-### Analyzing the Bundle Size
+-
+-This section has moved here: [https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size](https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size)
+-
+-### Making a Progressive Web App
+-
+-This section has moved here: [https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app](https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app)
+-
+-### Advanced Configuration
+-
+-This section has moved here: [https://facebook.github.io/create-react-app/docs/advanced-configuration](https://facebook.github.io/create-react-app/docs/advanced-configuration)
+-
+-### Deployment
+-
+-This section has moved here: [https://facebook.github.io/create-react-app/docs/deployment](https://facebook.github.io/create-react-app/docs/deployment)
+-
+-### `npm run build` fails to minify
+-
+-This section has moved here: [https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify](https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify)
++# Go To Dream — фронтенд
++
++Одностраничное приложение на React: главная страница и страница поиска
++авиабилетов `/s7`.
++
++## Запуск
++
++```bash
++npm install
++npm start          # http://localhost:3000
++```
++
++Бэкенд поднимается отдельно, из `../backend/deno`:
++
++```bash
++cd ../backend/deno
++deno task start    # http://localhost:8000
++```
++
++Адрес API задаётся переменной `REACT_APP_API_URL`; без неё используется
++`http://localhost:8000` (см. `src/components/search/searchApi.js`).
++Для продакшена удобно положить пустое значение — тогда запросы уходят на
++тот же домен через reverse proxy.
++
++## Сборка
++
++```bash
++npm run build      # результат в build/
++```
++
++Настройки сборки — в `.env.production`: карты исходников не генерируются,
++рантайм-чанк не встраивается в HTML.
++
++## Устройство
++
++```
++public/            index.html, иконки, manifest
++src/
++  index.js         точка входа: применяет тему и монтирует App
++  App.js           маршруты: / и /s7
++  theme/           сквозные слои оформления
++    tokens.css     ВСЕ цвета проекта: тёмная и светлая темы
++    theme.js       состояние темы (system | light | dark)
++    base.css       каркас страницы, общий для всех страниц
++    form.css       оформление формы поиска
++    s7.css         оформление страницы выдачи
++  pages/           страницы
++  components/
++    layout/        шапка, подвал, переключатель темы
++    homepage/      секции главной
++    s7/            форма поиска, фильтры, выдача
++    search/        контракт, валидация, сеть, справочник аэропортов
++    ui/            переиспользуемые элементы (глобус, слайдер)
++    styles/        оформление конкретных компонентов
++    fonts/         Inter, Manrope, Prospec
++```
++
++### Оформление
++
++Цвет в проекте задаётся только через переменные из `theme/tokens.css`.
++Литеральных цветов в остальных файлах быть не должно: там объявлены две
++темы, и хардкод ломает одну из них. Тема выбирается атрибутом
++`data-theme` на `<html>`, его ставит `theme/theme.js`.
++
++## Тесты
++
++Тестов пока нет, и заготовка create-react-app удалена вместе с ними
++(она проверяла ссылку «learn react» и падала). Чтобы вернуть:
++
++```bash
++npm i -D @testing-library/react @testing-library/jest-dom @testing-library/user-event
++```
++
++затем добавить обратно в `package.json` скрипт `"test": "react-scripts test"`
++и `"react-app/jest"` в `eslintConfig.extends`, а рядом с проверяемым
++компонентом положить `*.test.js`.
+diff --git a/frontend/package-lock.json b/frontend/package-lock.json
+index b945f3f..858f26b 100644
+--- a/frontend/package-lock.json
++++ b/frontend/package-lock.json
+@@ -1,21 +1,17 @@
+ {
+-  "name": "frontend",
++  "name": "gotodream-frontend",
+   "version": "0.1.0",
+   "lockfileVersion": 3,
+   "requires": true,
+   "packages": {
+     "": {
+-      "name": "frontend",
++      "name": "gotodream-frontend",
+       "version": "0.1.0",
+       "dependencies": {
+-        "cra-template": "1.2.0",
+-        "date-fns": "^4.1.0",
+         "react": "^19.0.0",
+         "react-dom": "^19.0.0",
+-        "react-icons": "^5.4.0",
+         "react-router-dom": "^6.28.2",
+-        "react-scripts": "5.0.1",
+-        "web-vitals": "^4.2.4"
++        "react-scripts": "5.0.1"
+       }
+     },
+     "node_modules/@alloc/quick-lru": {
+@@ -5832,15 +5828,6 @@
+         "node": ">=10"
+       }
+     },
+-    "node_modules/cra-template": {
+-      "version": "1.2.0",
+-      "resolved": "https://registry.npmjs.org/cra-template/-/cra-template-1.2.0.tgz",
+-      "integrity": "sha512-06WBUmTq79NvqU91Y9OPCXv/ENy/UkUmQS0lBrOYCl/4f4l67idnGbBARDGLopCHfff6pf6UftcFRWHg+CVfRw==",
+-      "license": "MIT",
+-      "engines": {
+-        "node": ">=14"
+-      }
+-    },
+     "node_modules/cross-spawn": {
+       "version": "7.0.6",
+       "resolved": "https://registry.npmjs.org/cross-spawn/-/cross-spawn-7.0.6.tgz",
+@@ -6304,16 +6291,6 @@
+         "url": "https://github.com/sponsors/ljharb"
+       }
+     },
+-    "node_modules/date-fns": {
+-      "version": "4.1.0",
+-      "resolved": "https://registry.npmjs.org/date-fns/-/date-fns-4.1.0.tgz",
+-      "integrity": "sha512-Ukq0owbQXxa/U3EGtsdVBkR1w7KOQ5gIBqdH2hkvknzZPYvBxb/aa6E8L7tmjFtkwZBu3UXBbjIgPo/Ez4xaNg==",
+-      "license": "MIT",
+-      "funding": {
+-        "type": "github",
+-        "url": "https://github.com/sponsors/kossnocorp"
+-      }
+-    },
+     "node_modules/debug": {
+       "version": "4.4.0",
+       "resolved": "https://registry.npmjs.org/debug/-/debug-4.4.0.tgz",
+@@ -13736,15 +13713,6 @@
+       "integrity": "sha512-/6UZ2qgEyH2aqzYZgQPxEnz33NJ2gNsnHA2o5+o4wW9bLM/JYQitNP9xPhsXwC08hMMovfGe/8retsdDsczPRg==",
+       "license": "MIT"
+     },
+-    "node_modules/react-icons": {
+-      "version": "5.4.0",
+-      "resolved": "https://registry.npmjs.org/react-icons/-/react-icons-5.4.0.tgz",
+-      "integrity": "sha512-7eltJxgVt7X64oHh6wSWNwwbKTCtMfK35hcjvJS0yxEAhPM8oUKdS3+kqaW1vicIltw+kR2unHaa12S9pPALoQ==",
+-      "license": "MIT",
+-      "peerDependencies": {
+-        "react": "*"
+-      }
+-    },
+     "node_modules/react-is": {
+       "version": "17.0.2",
+       "resolved": "https://registry.npmjs.org/react-is/-/react-is-17.0.2.tgz",
+@@ -16495,12 +16463,6 @@
+         "minimalistic-assert": "^1.0.0"
+       }
+     },
+-    "node_modules/web-vitals": {
+-      "version": "4.2.4",
+-      "resolved": "https://registry.npmjs.org/web-vitals/-/web-vitals-4.2.4.tgz",
+-      "integrity": "sha512-r4DIlprAGwJ7YM11VZp4R884m0Vmgr6EAKe3P+kO0PPj3Unqyvv59rczf6UiGcb9Z8QxZVcqKNwv/g0WNdWwsw==",
+-      "license": "Apache-2.0"
+-    },
+     "node_modules/webidl-conversions": {
+       "version": "6.1.0",
+       "resolved": "https://registry.npmjs.org/webidl-conversions/-/webidl-conversions-6.1.0.tgz",
+diff --git a/frontend/package.json b/frontend/package.json
+index 42d5eb1..431a931 100644
+--- a/frontend/package.json
++++ b/frontend/package.json
+@@ -1,27 +1,21 @@
+ {
+-  "name": "frontend",
++  "name": "gotodream-frontend",
+   "version": "0.1.0",
+   "private": true,
+   "dependencies": {
+-    "cra-template": "1.2.0",
+-    "date-fns": "^4.1.0",
+     "react": "^19.0.0",
+     "react-dom": "^19.0.0",
+-    "react-icons": "^5.4.0",
+     "react-router-dom": "^6.28.2",
+-    "react-scripts": "5.0.1",
+-    "web-vitals": "^4.2.4"
++    "react-scripts": "5.0.1"
+   },
+   "scripts": {
+     "start": "react-scripts start",
+     "build": "react-scripts build",
+-    "test": "react-scripts test",
+     "eject": "react-scripts eject"
+   },
+   "eslintConfig": {
+     "extends": [
+-      "react-app",
+-      "react-app/jest"
++      "react-app"
+     ]
+   },
+   "browserslist": {
+diff --git a/frontend/public/apple-touch-icon.png b/frontend/public/apple-touch-icon.png
+new file mode 100644
+index 0000000000000000000000000000000000000000..621b752f4ed757ed3554615649852b998c6a43fc
+GIT binary patch
+literal 6093
+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
+
+literal 0
+HcmV?d00001
+
+diff --git a/frontend/public/favicon.ico b/frontend/public/favicon.ico
+index a11777cc471a4344702741ab1c8a588998b1311a..847a3887754083affac72c8047d7c963edf219e5 100644
+GIT binary patch
+literal 8416
+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
+L7eD{^LE?V^qvFgA
+
+literal 3870
+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
+baj7?x%VD!5Cxk2YbYLNVeiXvvpMCWYo=by@
+
+diff --git a/frontend/public/favicon.svg b/frontend/public/favicon.svg
+new file mode 100644
+index 0000000..edf3bb7
+--- /dev/null
++++ b/frontend/public/favicon.svg
+@@ -0,0 +1,10 @@
++<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
++  <!-- Знак-заглушка Go To Dream: контур глобуса, тот же, что нарисован
++       на страницах сайта. Нейтральный тон читается и на светлой, и на
++       тёмной панели вкладок; в тёмной теме браузера кольцо чуть светлее. -->
++  <style>
++    circle { stroke: #7C868E; }
++    @media (prefers-color-scheme: dark) { circle { stroke: #C9CDD2; } }
++  </style>
++  <circle cx="50" cy="50" r="36.5" fill="none" stroke-width="11" />
++</svg>
+diff --git a/frontend/public/index.html b/frontend/public/index.html
+index 157f705..3ce790c 100644
+--- a/frontend/public/index.html
++++ b/frontend/public/index.html
+@@ -1,11 +1,26 @@
+ <!DOCTYPE html>
+-<html lang="en">
++<html lang="ru">
+   <head>
+     <meta charset="utf-8" />
+-    <link rel="icon" href="%PUBLIC_URL%/favicon.ico" />
+     <meta name="viewport" content="width=device-width, initial-scale=1" />
++
++    <title>Go To Dream — билеты, отели и туры</title>
++    <meta name="description" content="Перелёты, отели, туры и трансферы в одном интерфейсе: поиск, сравнение и бронирование поездки целиком." />
++
++    <!-- Цвет строки состояния мобильного браузера. Значение подменяет
++         скрипт ниже вместе с темой; здесь стоит тёмное как значение по
++         умолчанию — оно же основное оформление сайта. -->
+     <meta name="theme-color" content="#0A0C0E" />
+ 
++    <!-- Иконки. favicon.svg масштабируется без потерь и умеет откликаться
++         на тёмную тему браузера, .ico нужен старым версиям Safari и
++         Windows-ярлыкам, apple-touch-icon — для «на экран Домой» в iOS
++         (там прозрачность не поддерживается, поэтому фон непрозрачный). -->
++    <link rel="icon" href="%PUBLIC_URL%/favicon.svg" type="image/svg+xml" />
++    <link rel="icon" href="%PUBLIC_URL%/favicon.ico" sizes="any" />
++    <link rel="apple-touch-icon" href="%PUBLIC_URL%/apple-touch-icon.png" />
++    <link rel="manifest" href="%PUBLIC_URL%/manifest.json" />
++
+     <!--
+       Тема выставляется ДО загрузки бандла.
+ 
+@@ -48,39 +63,9 @@
+         if (meta) meta.setAttribute('content', theme === 'light' ? '#F4F6F8' : '#0A0C0E');
+       })();
+     </script>
+-    <meta
+-      name="description"
+-      content="Web site created using create-react-app"
+-    />
+-    <link rel="apple-touch-icon" href="%PUBLIC_URL%/logo192.png" />
+-    <!--
+-      manifest.json provides metadata used when your web app is installed on a
+-      user's mobile device or desktop. See https://developers.google.com/web/fundamentals/web-app-manifest/
+-    -->
+-    <link rel="manifest" href="%PUBLIC_URL%/manifest.json" />
+-    <!--
+-      Notice the use of %PUBLIC_URL% in the tags above.
+-      It will be replaced with the URL of the `public` folder during the build.
+-      Only files inside the `public` folder can be referenced from the HTML.
+-
+-      Unlike "/favicon.ico" or "favicon.ico", "%PUBLIC_URL%/favicon.ico" will
+-      work correctly both with client-side routing and a non-root public URL.
+-      Learn how to configure a non-root public URL by running `npm run build`.
+-    -->
+-    <title>Go to Dream</title>
+   </head>
+   <body>
+-    <noscript>You need to enable JavaScript to run this app.</noscript>
++    <noscript>Для работы сайта нужен включённый JavaScript.</noscript>
+     <div id="root"></div>
+-    <!--
+-      This HTML file is a template.
+-      If you open it directly in the browser, you will see an empty page.
+-
+-      You can add webfonts, meta tags, or analytics to this file.
+-      The build step will place the bundled scripts into the <body> tag.
+-
+-      To begin the development, run `npm start` or `yarn start`.
+-      To create a production bundle, use `npm run build` or `yarn build`.
+-    -->
+   </body>
+ </html>
+diff --git a/frontend/public/logo192.png b/frontend/public/logo192.png
+deleted file mode 100644
+index fc44b0a3796c0e0a64c3d858ca038bd4570465d9..0000000000000000000000000000000000000000
+GIT binary patch
+literal 0
+HcmV?d00001
+
+literal 5347
+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
+X@eDJUQo;Ye2mwlRs<JiGX2Jghdw)}T
+
+diff --git a/frontend/public/logo512.png b/frontend/public/logo512.png
+deleted file mode 100644
+index a4e47a6545bc15971f8f63fba70e4013df88a664..0000000000000000000000000000000000000000
+GIT binary patch
+literal 0
+HcmV?d00001
+
+literal 9664
+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
+b{|{}U^kRn2wo}j7|0ATu<;8xA7zX}7|B6mN
+
+diff --git a/frontend/public/manifest.json b/frontend/public/manifest.json
+index 080d6c7..8d96451 100644
+--- a/frontend/public/manifest.json
++++ b/frontend/public/manifest.json
+@@ -1,25 +1,28 @@
+ {
+-  "short_name": "React App",
+-  "name": "Create React App Sample",
++  "short_name": "Go To Dream",
++  "name": "Go To Dream — билеты, отели и туры",
++  "description": "Перелёты, отели, туры и трансферы в одном интерфейсе",
++  "lang": "ru-RU",
+   "icons": [
+     {
+       "src": "favicon.ico",
+-      "sizes": "64x64 32x32 24x24 16x16",
++      "sizes": "64x64 48x48 32x32 24x24 16x16",
+       "type": "image/x-icon"
+     },
+     {
+-      "src": "logo192.png",
+-      "type": "image/png",
+-      "sizes": "192x192"
++      "src": "favicon.svg",
++      "sizes": "any",
++      "type": "image/svg+xml",
++      "purpose": "any"
+     },
+     {
+-      "src": "logo512.png",
+-      "type": "image/png",
+-      "sizes": "512x512"
++      "src": "apple-touch-icon.png",
++      "sizes": "180x180",
++      "type": "image/png"
+     }
+   ],
+   "start_url": ".",
+   "display": "standalone",
+-  "theme_color": "#000000",
+-  "background_color": "#ffffff"
++  "theme_color": "#0A0C0E",
++  "background_color": "#0A0C0E"
+ }
+diff --git a/frontend/src/App.css b/frontend/src/App.css
+deleted file mode 100644
+index daa9b02..0000000
+--- a/frontend/src/App.css
++++ /dev/null
+@@ -1,38 +0,0 @@
+-.App {
+-  text-align: center;
+-}
+-
+-.App-logo {
+-  height: 40vmin;
+-  pointer-events: none;
+-}
+-
+-@media (prefers-reduced-motion: no-preference) {
+-  .App-logo {
+-    animation: App-logo-spin infinite 20s linear;
+-  }
+-}
+-
+-.App-header {
+-  background-color: #0a0a0a;
+-  min-height: 100vh;
+-  display: flex;
+-  flex-direction: column;
+-  align-items: center;
+-  justify-content: center;
+-  font-size: calc(10px + 2vmin);
+-  color: white;
+-}
+-
+-.App-link {
+-  color: #61dafb;
+-}
+-
+-@keyframes App-logo-spin {
+-  from {
+-    transform: rotate(0deg);
+-  }
+-  to {
+-    transform: rotate(360deg);
+-  }
+-}
+diff --git a/frontend/src/App.test.js b/frontend/src/App.test.js
+deleted file mode 100644
+index 1f03afe..0000000
+--- a/frontend/src/App.test.js
++++ /dev/null
+@@ -1,8 +0,0 @@
+-import { render, screen } from '@testing-library/react';
+-import App from './App';
+-
+-test('renders learn react link', () => {
+-  render(<App />);
+-  const linkElement = screen.getByText(/learn react/i);
+-  expect(linkElement).toBeInTheDocument();
+-});
+diff --git a/frontend/src/components/s7/FlightList.jsx b/frontend/src/components/s7/FlightList.jsx
+index 876ada1..00c1c5c 100644
+--- a/frontend/src/components/s7/FlightList.jsx
++++ b/frontend/src/components/s7/FlightList.jsx
+@@ -1,4 +1,5 @@
+ import React from "react";
++import { CABIN_CLASS_LABELS } from "../search/contract";
+ import "../styles/FlightList.css";
+ 
+ /** 0 → «без пересадок», 1 → «1 пересадка», 2 → «2 пересадки» */
+@@ -51,6 +52,16 @@ const FlightList = ({ flights, onFlightClick }) => (
+                     </div>
+ 
+                     <div className="flight-price-block">
++                        {/* Класс обязателен на карточке. Один рейс продаётся в
++                            нескольких классах, и сервер возвращает их как
++                            отдельные предложения: без подписи в списке стояли
++                            бы две-три внешне одинаковые строки с разной ценой,
++                            и это читалось бы как ошибка выдачи, а не как
++                            выбор. Подпись стоит над ценой, потому что
++                            объясняет именно её. */}
++                        <div className="flight-cabin">
++                            {CABIN_CLASS_LABELS[flight.cabinClass] || flight.cabinClass}
++                        </div>
+                         <div className="flight-price">{formatPrice(flight.price, flight.currency)}</div>
+                         <button className="select-button" onClick={() => onFlightClick(flight.id)}>
+                             Выбрать
+diff --git a/frontend/src/components/s7/S7.jsx b/frontend/src/components/s7/S7.jsx
+index a3253fb..c19ebaf 100644
+--- a/frontend/src/components/s7/S7.jsx
++++ b/frontend/src/components/s7/S7.jsx
+@@ -77,8 +77,11 @@ const S7 = () => {
+        в списке даже с нулевым счётчиком (см. buildFacets), поэтому человек
+        видит строку «Аэрофлот 0» и понимает, почему выдача пуста, — вместо
+        того чтобы фильтр молча резал результаты из строки, которой на экране
+-       уже нет. Снять отметку он может сам, в один щелчок. */
++       уже нет. Снять отметку он может сам, в один щелчок.
++
++       Ровно то же верно для классов обслуживания. */
+     const airlineFacets = facets.airlines;
++    const cabinFacets = facets.cabinClasses;
+ 
+     const activeFilterCount =
+         stops.length +
+@@ -190,30 +193,42 @@ const S7 = () => {
+                         </aside>
+                         <aside className="filters-right">
+                             <div className="filters-column">
+-                                <div className="filter-group">
+-                                    <h3 className="filter-title">Класс обслуживания</h3>
+-                                    {Object.entries(CABIN_CLASS_LABELS).map(([value, label]) => (
+-                                        <label key={value} className="filter-item">
+-                                            <input
+-                                                type="checkbox"
+-                                                value={value}
+-                                                checked={selectedClasses.includes(value)}
+-                                                onChange={toggleIn(setSelectedClasses)}
+-                                            />
+-                                            <span className="checkmark"/>{label}
+-                                        </label>
+-                                    ))}
+-                                </div>
++                                {/* Обе группы строятся по фасетам из ответа
++                                    сервера и описывают ТЕКУЩУЮ выдачу.
++                                    Пока поиска не было, групп нет: предлагать
++                                    фильтр, не зная маршрута, — значит обещать
++                                    выбор, который ничего не найдёт.
++
++                                    Русские подписи классов берутся из
++                                    контракта: сервер присылает значения
++                                    ("economy"), а не текст для показа. */}
++                                {cabinFacets.length > 0 && (
++                                    <div className="filter-group">
++                                        <h3 className="filter-title">Класс обслуживания</h3>
++                                        {cabinFacets.map(({ value, count }) => (
++                                            <label
++                                                key={value}
++                                                className={`filter-item${count === 0 ? " is-empty" : ""}`}
++                                            >
++                                                <input
++                                                    type="checkbox"
++                                                    value={value}
++                                                    checked={selectedClasses.includes(value)}
++                                                    onChange={toggleIn(setSelectedClasses)}
++                                                />
++                                                <span className="checkmark"/>
++                                                <span className="filter-item__text">
++                                                    {CABIN_CLASS_LABELS[value] || value}
++                                                </span>
++                                                <span className="filter-item__count">{count}</span>
++                                            </label>
++                                        ))}
++                                    </div>
++                                )}
+ 
+-                                {/* Авиакомпании приходят с ответом сервера
+-                                    (facets.airlines) и относятся к текущей
+-                                    выдаче. Пока поиска не было, группы нет:
+-                                    показывать список компаний, не зная
+-                                    маршрута, — значит предлагать фильтр,
+-                                    который ничего не найдёт. */}
+                                 {airlineFacets.length > 0 && (
+                                     <>
+-                                        <div className="filter-divider"/>
++                                        {cabinFacets.length > 0 && <div className="filter-divider"/>}
+ 
+                                         <div className="filter-group">
+                                             <h3 className="filter-title">Авиакомпании</h3>
+diff --git a/frontend/src/components/search/useFlightSearch.js b/frontend/src/components/search/useFlightSearch.js
+index 6d465bc..3f05be2 100644
+--- a/frontend/src/components/search/useFlightSearch.js
++++ b/frontend/src/components/search/useFlightSearch.js
+@@ -5,7 +5,15 @@ import { buildFilters } from "./contract";
+ /* Одна и та же ссылка на пустой набор: компоненты сравнивают facets по
+    ссылке в зависимостях useMemo/useEffect, и новый литерал на каждый рендер
+    давал бы лишние пересчёты. */
+-const EMPTY_FACETS = { airlines: [] };
++const EMPTY_FACETS = { airlines: [], cabinClasses: [] };
++
++/** Ответ сервера -> набор фасетов, с которым безопасно работать. */
++const pickFacets = (facets) => {
++    const airlines = Array.isArray(facets?.airlines) ? facets.airlines : [];
++    const cabinClasses = Array.isArray(facets?.cabinClasses) ? facets.cabinClasses : [];
++    if (!airlines.length && !cabinClasses.length) return EMPTY_FACETS;
++    return { airlines, cabinClasses };
++};
+ 
+ /**
+  * Вся работа с сетью для страницы поиска: запрос, состояния, отмена гонок,
+@@ -15,7 +23,7 @@ const EMPTY_FACETS = { airlines: [] };
+  * @returns {{
+  *   status: "idle"|"loading"|"success"|"error",
+  *   flights: Array,
+- *   facets: { airlines: Array<{value: string, count: number}> },
++ *   facets: { airlines: Facet[], cabinClasses: Facet[] },  Facet = {value, count}
+  *   error: ApiError|null,
+  *   fieldErrors: object|null,
+  *   hasSearched: boolean,
+@@ -25,7 +33,8 @@ const EMPTY_FACETS = { airlines: [] };
+  */
+ export function useFlightSearch(filters, { debounceMs = 300 } = {}) {
+     /* facets — значения, которые сервер считает осмысленными для фильтров
+-       этой конкретной выдачи (сейчас это список авиакомпаний со счётчиками).
++       этой конкретной выдачи: авиакомпании и классы обслуживания со
++       счётчиками предложений.
+        Лежат в том же состоянии, что и рейсы, потому что приходят одним
+        ответом и обязаны меняться вместе с ним: список компаний, оставшийся
+        от прошлого маршрута, — это фильтр, который ничего не находит. */
+@@ -60,11 +69,11 @@ export function useFlightSearch(filters, { debounceMs = 300 } = {}) {
+             setState({
+                 status: "success",
+                 flights: Array.isArray(data.flights) ? data.flights : [],
+-                // Старый сервер (до появления фасетов) поля не пришлёт —
+-                // тогда список авиакомпаний просто не показывается.
+-                facets: Array.isArray(data.facets?.airlines)
+-                    ? { airlines: data.facets.airlines }
+-                    : EMPTY_FACETS,
++                // Каждый список проверяется отдельно: сервер, не знающий про
++                // фасеты (или знающий только про часть), не должен ронять
++                // страницу — соответствующая группа фильтров просто не
++                // покажется.
++                facets: pickFacets(data.facets),
+                 error: null,
+             });
+         } catch (error) {
+diff --git a/frontend/src/components/styles/FlightList.css b/frontend/src/components/styles/FlightList.css
+index 1e45f2c..e02343b 100644
+--- a/frontend/src/components/styles/FlightList.css
++++ b/frontend/src/components/styles/FlightList.css
+@@ -141,6 +141,18 @@
+     min-width: 0;
+ }
+ 
++/* Класс обслуживания над ценой. Мелкий, разряжённый, заглавными — это
++   подпись к цене, а не второй заголовок карточки. */
++.flight-cabin {
++    font-size: 12px;
++    line-height: 16px;
++    letter-spacing: .1em;
++    text-transform: uppercase;
++    color: #a0a0a0;
++    margin-bottom: 4px;
++    white-space: nowrap;
++}
++
+ .flight-price {
+     font-size: 24px;
+     font-weight: bold;
+diff --git a/frontend/src/components/styles/S7.responsive.css b/frontend/src/components/styles/S7.responsive.css
+index 8a1f27e..5926619 100644
+--- a/frontend/src/components/styles/S7.responsive.css
++++ b/frontend/src/components/styles/S7.responsive.css
+@@ -626,9 +626,13 @@ img, svg, video, canvas {
+     .duration { font-size: 12px; }
+     .airline, .stops { font-size: 11px; }
+ 
+-    /* Цена и кнопка — в одну строку, разнесены по краям. */
++    /* Цена и кнопка — в одну строку, разнесены по краям. Класс
++       обслуживания занимает всю ширину и встаёт над ними отдельной
++       строкой: иначе он стал бы третьим элементом строки и раздвинул
++       цену с кнопкой. */
+     .flight-price-block {
+         display: flex;
++        flex-wrap: wrap;
+         align-items: center;
+         justify-content: space-between;
+         gap: 12px;
+@@ -637,6 +641,11 @@ img, svg, video, canvas {
+         border-top: 1px solid var(--gtd-line);
+     }
+ 
++    .flight-price-block .flight-cabin {
++        flex: 0 0 100%;
++        margin-bottom: -6px;
++    }
++
+     .flight-price {
+         margin-bottom: 0;
+         font-size: 21px;
+diff --git a/frontend/src/index.css b/frontend/src/index.css
+deleted file mode 100644
+index ec2585e..0000000
+--- a/frontend/src/index.css
++++ /dev/null
+@@ -1,13 +0,0 @@
+-body {
+-  margin: 0;
+-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
+-    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
+-    sans-serif;
+-  -webkit-font-smoothing: antialiased;
+-  -moz-osx-font-smoothing: grayscale;
+-}
+-
+-code {
+-  font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New',
+-    monospace;
+-}
+diff --git a/frontend/src/index.js b/frontend/src/index.js
+index e9f2571..43f31b6 100644
+--- a/frontend/src/index.js
++++ b/frontend/src/index.js
+@@ -1,9 +1,7 @@
+ import React from 'react';
+ import ReactDOM from 'react-dom/client';
+-import './index.css';
+ import App from './App';
+ import { applyInitialTheme } from './theme/theme';
+-import reportWebVitals from './reportWebVitals';
+ 
+ /* Тема ставится ДО первой отрисовки React. Основную работу делает
+    синхронный скрипт в public/index.html — он отрабатывает раньше, чем
+@@ -13,14 +11,15 @@ import reportWebVitals from './reportWebVitals';
+    не стоит и ничего не ломает. Подробности в theme/theme.js. */
+ applyInitialTheme();
+ 
++/* Глобальных стилей здесь нет намеренно. Раньше отсюда подключался
++   index.css из заготовки create-react-app: он задавал body шрифт
++   -apple-system и сбрасывал margin — то же самое, но другими значениями,
++   делает theme/base.css, и два источника правды для одного и того же
++   правила расходились. Весь каркас страницы теперь описан в theme/. */
++
+ const root = ReactDOM.createRoot(document.getElementById('root'));
+ root.render(
+   <React.StrictMode>
+     <App />
+   </React.StrictMode>
+ );
+-
+-// If you want to start measuring performance in your app, pass a function
+-// to log results (for example: reportWebVitals(console.log))
+-// or send to an analytics endpoint. Learn more: https://bit.ly/CRA-vitals
+-reportWebVitals();
+diff --git a/frontend/src/logo.svg b/frontend/src/logo.svg
+deleted file mode 100644
+index 9dfc1c0..0000000
+--- a/frontend/src/logo.svg
++++ /dev/null
+@@ -1 +0,0 @@
+-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 841.9 595.3"><g fill="#61DAFB"><path d="M666.3 296.5c0-32.5-40.7-63.3-103.1-82.4 14.4-63.6 8-114.2-20.2-130.4-6.5-3.8-14.1-5.6-22.4-5.6v22.3c4.6 0 8.3.9 11.4 2.6 13.6 7.8 19.5 37.5 14.9 75.7-1.1 9.4-2.9 19.3-5.1 29.4-19.6-4.8-41-8.5-63.5-10.9-13.5-18.5-27.5-35.3-41.6-50 32.6-30.3 63.2-46.9 84-46.9V78c-27.5 0-63.5 19.6-99.9 53.6-36.4-33.8-72.4-53.2-99.9-53.2v22.3c20.7 0 51.4 16.5 84 46.6-14 14.7-28 31.4-41.3 49.9-22.6 2.4-44 6.1-63.6 11-2.3-10-4-19.7-5.2-29-4.7-38.2 1.1-67.9 14.6-75.8 3-1.8 6.9-2.6 11.5-2.6V78.5c-8.4 0-16 1.8-22.6 5.6-28.1 16.2-34.4 66.7-19.9 130.1-62.2 19.2-102.7 49.9-102.7 82.3 0 32.5 40.7 63.3 103.1 82.4-14.4 63.6-8 114.2 20.2 130.4 6.5 3.8 14.1 5.6 22.5 5.6 27.5 0 63.5-19.6 99.9-53.6 36.4 33.8 72.4 53.2 99.9 53.2 8.4 0 16-1.8 22.6-5.6 28.1-16.2 34.4-66.7 19.9-130.1 62-19.1 102.5-49.9 102.5-82.3zm-130.2-66.7c-3.7 12.9-8.3 26.2-13.5 39.5-4.1-8-8.4-16-13.1-24-4.6-8-9.5-15.8-14.4-23.4 14.2 2.1 27.9 4.7 41 7.9zm-45.8 106.5c-7.8 13.5-15.8 26.3-24.1 38.2-14.9 1.3-30 2-45.2 2-15.1 0-30.2-.7-45-1.9-8.3-11.9-16.4-24.6-24.2-38-7.6-13.1-14.5-26.4-20.8-39.8 6.2-13.4 13.2-26.8 20.7-39.9 7.8-13.5 15.8-26.3 24.1-38.2 14.9-1.3 30-2 45.2-2 15.1 0 30.2.7 45 1.9 8.3 11.9 16.4 24.6 24.2 38 7.6 13.1 14.5 26.4 20.8 39.8-6.3 13.4-13.2 26.8-20.7 39.9zm32.3-13c5.4 13.4 10 26.8 13.8 39.8-13.1 3.2-26.9 5.9-41.2 8 4.9-7.7 9.8-15.6 14.4-23.7 4.6-8 8.9-16.1 13-24.1zM421.2 430c-9.3-9.6-18.6-20.3-27.8-32 9 .4 18.2.7 27.5.7 9.4 0 18.7-.2 27.8-.7-9 11.7-18.3 22.4-27.5 32zm-74.4-58.9c-14.2-2.1-27.9-4.7-41-7.9 3.7-12.9 8.3-26.2 13.5-39.5 4.1 8 8.4 16 13.1 24 4.7 8 9.5 15.8 14.4 23.4zM420.7 163c9.3 9.6 18.6 20.3 27.8 32-9-.4-18.2-.7-27.5-.7-9.4 0-18.7.2-27.8.7 9-11.7 18.3-22.4 27.5-32zm-74 58.9c-4.9 7.7-9.8 15.6-14.4 23.7-4.6 8-8.9 16-13 24-5.4-13.4-10-26.8-13.8-39.8 13.1-3.1 26.9-5.8 41.2-7.9zm-90.5 125.2c-35.4-15.1-58.3-34.9-58.3-50.6 0-15.7 22.9-35.6 58.3-50.6 8.6-3.7 18-7 27.7-10.1 5.7 19.6 13.2 40 22.5 60.9-9.2 20.8-16.6 41.1-22.2 60.6-9.9-3.1-19.3-6.5-28-10.2zM310 490c-13.6-7.8-19.5-37.5-14.9-75.7 1.1-9.4 2.9-19.3 5.1-29.4 19.6 4.8 41 8.5 63.5 10.9 13.5 18.5 27.5 35.3 41.6 50-32.6 30.3-63.2 46.9-84 46.9-4.5-.1-8.3-1-11.3-2.7zm237.2-76.2c4.7 38.2-1.1 67.9-14.6 75.8-3 1.8-6.9 2.6-11.5 2.6-20.7 0-51.4-16.5-84-46.6 14-14.7 28-31.4 41.3-49.9 22.6-2.4 44-6.1 63.6-11 2.3 10.1 4.1 19.8 5.2 29.1zm38.5-66.7c-8.6 3.7-18 7-27.7 10.1-5.7-19.6-13.2-40-22.5-60.9 9.2-20.8 16.6-41.1 22.2-60.6 9.9 3.1 19.3 6.5 28.1 10.2 35.4 15.1 58.3 34.9 58.3 50.6-.1 15.7-23 35.6-58.4 50.6zM320.8 78.4z"/><circle cx="420.9" cy="296.5" r="45.7"/><path d="M520.5 78.1z"/></g></svg>
+\ No newline at end of file
+diff --git a/frontend/src/reportWebVitals.js b/frontend/src/reportWebVitals.js
+deleted file mode 100644
+index 5253d3a..0000000
+--- a/frontend/src/reportWebVitals.js
++++ /dev/null
+@@ -1,13 +0,0 @@
+-const reportWebVitals = onPerfEntry => {
+-  if (onPerfEntry && onPerfEntry instanceof Function) {
+-    import('web-vitals').then(({ getCLS, getFID, getFCP, getLCP, getTTFB }) => {
+-      getCLS(onPerfEntry);
+-      getFID(onPerfEntry);
+-      getFCP(onPerfEntry);
+-      getLCP(onPerfEntry);
+-      getTTFB(onPerfEntry);
+-    });
+-  }
+-};
+-
+-export default reportWebVitals;
+diff --git a/frontend/src/setupTests.js b/frontend/src/setupTests.js
+deleted file mode 100644
+index 8f2609b..0000000
+--- a/frontend/src/setupTests.js
++++ /dev/null
+@@ -1,5 +0,0 @@
+-// jest-dom adds custom jest matchers for asserting on DOM nodes.
+-// allows you to do things like:
+-// expect(element).toHaveTextContent(/react/i)
+-// learn more: https://github.com/testing-library/jest-dom
+-import '@testing-library/jest-dom';
+diff --git a/frontend/src/theme/s7.css b/frontend/src/theme/s7.css
+index 3aa4c22..f09edf7 100644
+--- a/frontend/src/theme/s7.css
++++ b/frontend/src/theme/s7.css
+@@ -339,7 +339,8 @@
+ 
+ .gtd-theme .flight-airport,
+ .gtd-theme .airline,
+-.gtd-theme .stops {
++.gtd-theme .stops,
++.gtd-theme .flight-cabin {
+     color: var(--gtd-muted);
+ }
+ 
+-- 
+2.43.0
+

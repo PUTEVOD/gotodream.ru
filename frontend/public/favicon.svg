@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <!-- Знак-заглушка Go To Dream: контур глобуса, тот же, что нарисован
+       на страницах сайта. Нейтральный тон читается и на светлой, и на
+       тёмной панели вкладок; в тёмной теме браузера кольцо чуть светлее. -->
+  <style>
+    circle { stroke: #7C868E; }
+    @media (prefers-color-scheme: dark) { circle { stroke: #C9CDD2; } }
+  </style>
+  <circle cx="50" cy="50" r="36.5" fill="none" stroke-width="11" />
+</svg>

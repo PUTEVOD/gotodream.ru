@@ -1,0 +1,613 @@
+From fb679ff67d6fb733e71c59fbd16466e3cf7ed823 Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Wed, 2 Sep 2026 13:01:38 +0000
+Subject: [PATCH] =?UTF-8?q?=D0=9A=D0=BB=D0=B0=D1=81=D1=81=20=D0=BE=D0=B1?=
+ =?UTF-8?q?=D1=81=D0=BB=D1=83=D0=B6=D0=B8=D0=B2=D0=B0=D0=BD=D0=B8=D1=8F=20?=
+ =?UTF-8?q?=D1=82=D0=BE=D0=BB=D1=8C=D0=BA=D0=BE=20=D0=B2=20=D1=84=D0=B8?=
+ =?UTF-8?q?=D0=BB=D1=8C=D1=82=D1=80=D0=B0=D1=85,=20=D1=82=D0=B5=D0=BC?=
+ =?UTF-8?q?=D0=B0=20=D0=B8=D0=B7=20=D1=82=D1=80=D1=91=D1=85=20=D1=81=D0=BE?=
+ =?UTF-8?q?=D1=81=D1=82=D0=BE=D1=8F=D0=BD=D0=B8=D0=B9?=
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Класс обслуживания
+* Выбор класса убран из выпадающего списка «Пассажиры и класс»: он
+  остаётся в колонке фильтров /s7 и там единственный.
+* Поле переименовано в «Пассажиры», значение больше не показывает класс.
+  Подпись не должна обещать орган управления, которого в поле нет.
+* SearchForm хранит cabinClass без сеттера: значение уходит в payload и
+  проверяется валидацией, но изнутри формы не меняется.
+
+Тема
+* Переключатель стал трёхпозиционным: «как на устройстве» -> светлая ->
+  тёмная -> снова «как на устройстве». Раньше первое же нажатие навсегда
+  отвязывало сайт от системной настройки, и вернуться к авто было нечем.
+* В theme.js разведены два понятия: preference (выбор человека,
+  system|light|dark, он же хранится) и действующая тема (light|dark,
+  она же data-theme). В режиме system тема меняется вживую вместе с
+  системной настройкой, без перезагрузки.
+* Подписка на prefers-color-scheme живёт всегда, а условие проверяется
+  в момент события: иначе после возврата к «как на устройстве» слежение
+  не возобновлялось бы.
+* Значок кнопки показывает ТЕКУЩЕЕ состояние (монитор/солнце/месяц);
+  что произойдёт по нажатию, сказано словами в подсказке и aria-label.
+
+Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_01AnWPcNjzYDbnnNWws2zLGB
+---
+ frontend/public/index.html                    |  20 ++-
+ .../src/components/layout/ThemeToggle.jsx     | 107 ++++++++-----
+ .../src/components/s7/PassengerSelector.jsx   |  36 ++---
+ frontend/src/components/s7/SearchForm.jsx     |  27 ++--
+ frontend/src/index.js                         |   4 +-
+ frontend/src/theme/theme.js                   | 144 +++++++++++-------
+ 6 files changed, 194 insertions(+), 144 deletions(-)
+
+diff --git a/frontend/public/index.html b/frontend/public/index.html
+index 4d274a4..157f705 100644
+--- a/frontend/public/index.html
++++ b/frontend/public/index.html
+@@ -18,6 +18,12 @@
+       способ этого избежать: он синхронный, стоит в <head> и отрабатывает
+       раньше первой отрисовки.
+ 
++      ЧТО ЛЕЖИТ В ХРАНИЛИЩЕ: "system" | "light" | "dark" — предпочтение
++      человека, а не действующая тема. "system" (и отсутствие значения, и
++      любой мусор) означает «как на устройстве»: тогда тема берётся из
++      prefers-color-scheme и дальше, уже в React, меняется вживую вместе с
++      системной настройкой.
++
+       ЦЕНА РЕШЕНИЯ: логика выбора темы существует в двух местах. Здесь она
+       сведена к минимуму (ключ хранилища и системный запрос), всё остальное —
+       в src/theme/theme.js. При изменении ключа "gtd-theme" правьте ОБА
+@@ -30,13 +36,13 @@
+     -->
+     <script>
+       (function () {
+-        var theme = null;
+-        try { theme = localStorage.getItem('gtd-theme'); } catch (e) {}
+-        if (theme !== 'light' && theme !== 'dark') {
+-          theme = window.matchMedia &&
+-                  window.matchMedia('(prefers-color-scheme: light)').matches
+-                    ? 'light' : 'dark';
+-        }
++        var stored = null;
++        try { stored = localStorage.getItem('gtd-theme'); } catch (e) {}
++        var theme = stored === 'light' || stored === 'dark'
++          ? stored
++          : (window.matchMedia &&
++             window.matchMedia('(prefers-color-scheme: light)').matches
++               ? 'light' : 'dark');
+         document.documentElement.setAttribute('data-theme', theme);
+         var meta = document.querySelector('meta[name="theme-color"]');
+         if (meta) meta.setAttribute('content', theme === 'light' ? '#F4F6F8' : '#0A0C0E');
+diff --git a/frontend/src/components/layout/ThemeToggle.jsx b/frontend/src/components/layout/ThemeToggle.jsx
+index eebb019..3d66235 100644
+--- a/frontend/src/components/layout/ThemeToggle.jsx
++++ b/frontend/src/components/layout/ThemeToggle.jsx
+@@ -1,55 +1,88 @@
+ import React from "react";
+-import { THEMES, useTheme } from "../../theme/theme";
++import { PREFERENCES, useTheme } from "../../theme/theme";
++
++/* Подписи и значки для трёх состояний.
++
++   ЗНАЧОК ПОКАЗЫВАЕТ ТЕКУЩЕЕ СОСТОЯНИЕ, а не будущее. Это отличается от
++   двухпозиционных переключателей, где принято рисовать «то, что получится».
++   С тремя состояниями такое соглашение не работает: по одному значку
++   невозможно понять, из какого положения оно получится, и кнопка
++   превращается в загадку. Поэтому значок отвечает на вопрос «что сейчас», а
++   что будет дальше — сказано словами в подсказке и в aria-label.
++
++   Монитор — «как на устройстве», солнце — светлая, месяц — тёмная. */
++const STATES = {
++    [PREFERENCES.SYSTEM]: {
++        title: "Тема: как на устройстве",
++        icon: (
++            <svg viewBox="0 0 24 24" width="18" height="18" fill="none"
++                 stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"
++                 strokeLinejoin="round" aria-hidden="true" focusable="false">
++                <rect x="2.8" y="4" width="18.4" height="12.4" rx="2" />
++                <path d="M9 20h6M12 16.4V20" />
++            </svg>
++        ),
++    },
++    [PREFERENCES.LIGHT]: {
++        title: "Тема: светлая",
++        icon: (
++            <svg viewBox="0 0 24 24" width="18" height="18" fill="none"
++                 stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"
++                 aria-hidden="true" focusable="false">
++                <circle cx="12" cy="12" r="4.2" />
++                <path d="M12 2.6v2.2M12 19.2v2.2M2.6 12h2.2M19.2 12h2.2
++                         M5.4 5.4l1.6 1.6M17 17l1.6 1.6M18.6 5.4L17 7M7 17l-1.6 1.6" />
++            </svg>
++        ),
++    },
++    [PREFERENCES.DARK]: {
++        title: "Тема: тёмная",
++        icon: (
++            <svg viewBox="0 0 24 24" width="18" height="18" fill="none"
++                 stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round"
++                 aria-hidden="true" focusable="false">
++                <path d="M20.5 14.6A8.6 8.6 0 0 1 9.4 3.5a8.6 8.6 0 1 0 11.1 11.1z" />
++            </svg>
++        ),
++    },
++};
++
++/** Что произойдёт по следующему нажатию — для подсказки. */
++const NEXT_ACTION = {
++    [PREFERENCES.SYSTEM]: "нажмите, чтобы закрепить светлую",
++    [PREFERENCES.LIGHT]: "нажмите, чтобы закрепить тёмную",
++    [PREFERENCES.DARK]: "нажмите, чтобы вернуть тему устройства",
++};
+ 
+ /**
+- * Переключатель темы в шапке.
+- *
+- * ПОЧЕМУ КНОПКА, А НЕ ПЕРЕКЛЮЧАТЕЛЬ-«ТУМБЛЕР». Состояний два и они
+- * равноправны, третьего («как в системе») в интерфейсе нет — оно работает
+- * молча, до первого нажатия. Кнопка с одним значком короче объясняет
+- * происходящее, чем тумблер, у которого надо ещё понять, какое положение
+- * что означает.
++ * Переключатель темы в шапке: «как на устройстве» → светлая → тёмная → снова
++ * «как на устройстве».
+  *
+- * ЧТО НАРИСОВАНО. Значок показывает тему, В КОТОРУЮ переключит нажатие, —
+- * это соглашение большинства сайтов: в тёмной теме видно солнце («включить
+- * светлую»), в светлой — луну. Того же смысла держится aria-label, поэтому
+- * скринридер и глаз сообщают одно и то же.
++ * ПОЧЕМУ КНОПКА, А НЕ СПИСОК ИЗ ТРЁХ ПУНКТОВ. Три состояния — предел, при
++ * котором обход по кругу ещё дешевле выпадающего списка: до нужного значения
++ * не больше двух нажатий, а на экране остаётся один элемент вместо кнопки со
++ * списком. Появится четвёртое (например, «высокий контраст») — обход надо
++ * будет заменить списком.
+  *
+- * ДОСТУПНОСТЬ. aria-pressed не используется намеренно: кнопка не «включает
+- * режим», а переключает между двумя равными состояниями, и «нажата/не
+- * нажата» здесь ничего не значит. Текущее состояние сообщается в title и
+- * aria-label целиком.
++ * ДОСТУПНОСТЬ. aria-pressed не используется: кнопка не включает режим, а
++ * перебирает три равноправных состояния, и «нажата / не нажата» здесь
++ * ничего не значит. Текущее состояние и следующее действие сообщаются
++ * целиком в aria-label.
+  */
+ const ThemeToggle = () => {
+-    const { theme, toggle } = useTheme();
+-    const isDark = theme === THEMES.DARK;
+-    const label = isDark ? "Включить светлую тему" : "Включить тёмную тему";
++    const { preference, cycle } = useTheme();
++    const state = STATES[preference] || STATES[PREFERENCES.SYSTEM];
++    const label = `${state.title}; ${NEXT_ACTION[preference]}`;
+ 
+     return (
+         <button
+             type="button"
+             className="gtd-theme-toggle"
+-            onClick={toggle}
++            onClick={cycle}
+             aria-label={label}
+             title={label}
+         >
+-            {isDark ? (
+-                /* Солнце */
+-                <svg viewBox="0 0 24 24" width="18" height="18" fill="none"
+-                     stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"
+-                     aria-hidden="true" focusable="false">
+-                    <circle cx="12" cy="12" r="4.2" />
+-                    <path d="M12 2.6v2.2M12 19.2v2.2M2.6 12h2.2M19.2 12h2.2
+-                             M5.4 5.4l1.6 1.6M17 17l1.6 1.6M18.6 5.4L17 7M7 17l-1.6 1.6" />
+-                </svg>
+-            ) : (
+-                /* Месяц */
+-                <svg viewBox="0 0 24 24" width="18" height="18" fill="none"
+-                     stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round"
+-                     aria-hidden="true" focusable="false">
+-                    <path d="M20.5 14.6A8.6 8.6 0 0 1 9.4 3.5a8.6 8.6 0 1 0 11.1 11.1z" />
+-                </svg>
+-            )}
++            {state.icon}
+         </button>
+     );
+ };
+diff --git a/frontend/src/components/s7/PassengerSelector.jsx b/frontend/src/components/s7/PassengerSelector.jsx
+index 10fd17f..b801370 100644
+--- a/frontend/src/components/s7/PassengerSelector.jsx
++++ b/frontend/src/components/s7/PassengerSelector.jsx
+@@ -1,5 +1,5 @@
+ import React, { useEffect, useRef } from "react";
+-import { PASSENGER_TYPES, LIMITS, CABIN_CLASS_LABELS, countSeats } from "../search/contract";
++import { PASSENGER_TYPES, LIMITS, countSeats } from "../search/contract";
+ 
+ /**
+  * Одна категория пассажиров. Вынесена на верхний уровень модуля намеренно:
+@@ -39,6 +39,14 @@ const PassengerCategory = ({ label, subLabel, value, min, max, onChange }) => (
+ 
+ /**
+  * Выпадающий список пассажиров.
++ *
++ * КЛАССА ОБСЛУЖИВАНИЯ ЗДЕСЬ НЕТ. Он выбирается в колонке фильтров на /s7
++ * («Класс обслуживания»), и это единственное место во всём интерфейсе, где
++ * он задаётся. Дублировать выбор в форме означало бы два органа управления
++ * одним значением на одном экране: человек меняет класс в одном месте, а
++ * второе продолжает показывать прежнее — и непонятно, какое из двух
++ * действует.
++ *
+  * @param {object}   passengers  { adults, teens, children, infants }
+  * @param {Function} onChange    (nextPassengers) => void
+  * @param {Function} onClose     закрытие по клику вне и по Escape
+@@ -47,8 +55,6 @@ const PassengerCategory = ({ label, subLabel, value, min, max, onChange }) => (
+ const PassengerSelector = ({
+                                passengers,
+                                onChange,
+-                               cabinClass,
+-                               onCabinClassChange,
+                                onClose,
+                                error,
+                                triggerRef,
+@@ -105,30 +111,6 @@ const PassengerSelector = ({
+ 
+                 {error && <div className="field-error">{error}</div>}
+ 
+-                {/* Выбор класса обслуживания.
+-
+-                    Блок был закомментирован, и из-за этого поле, подписанное
+-                    «Пассажиры и класс», показывало класс («1 пассажир,
+-                    эконом»), но изменить его было негде: на главной — вообще
+-                    никак, на /s7 — только через фильтр в боковой колонке,
+-                    который к форме отношения не имеет и отправляется в
+-                    запросе отдельным параметром. Возвращён: подпись поля
+-                    обещает выбор класса, значение уходит в payload
+-                    (buildSearchPayload), обработчик уже был передан пропом. */}
+-                <div className="cabin-class-block">
+-                    <label className="category-title" htmlFor="cabin-class">Класс обслуживания</label>
+-                    <select
+-                        id="cabin-class"
+-                        className="cabin-class-select"
+-                        value={cabinClass}
+-                        onChange={(event) => onCabinClassChange(event.target.value)}
+-                    >
+-                        {Object.entries(CABIN_CLASS_LABELS).map(([value, label]) => (
+-                            <option key={value} value={value}>{label}</option>
+-                        ))}
+-                    </select>
+-                </div>
+-
+                 <div className="tariff-section">
+                     <div className="tariff-title">Льготные тарифы</div>
+                     <div className="tariff-description">для некоторых групп пассажиров</div>
+diff --git a/frontend/src/components/s7/SearchForm.jsx b/frontend/src/components/s7/SearchForm.jsx
+index 6d3389b..01cea13 100644
+--- a/frontend/src/components/s7/SearchForm.jsx
++++ b/frontend/src/components/s7/SearchForm.jsx
+@@ -7,7 +7,6 @@ import { isFieldSurface } from "./fieldSurface";
+ import {
+     TRIP_TYPES,
+     CABIN_CLASSES,
+-    CABIN_CLASS_LABELS,
+     LIMITS,
+     EMPTY_PASSENGERS,
+     todayISO,
+@@ -54,11 +53,12 @@ const SearchForm = ({ onSearch,
+     );
+     const [returnDate, setReturnDate] = useState(initialValues?.returnDate || "");
+     const [passengers, setPassengers] = useState(initialValues?.passengers || EMPTY_PASSENGERS);
+-    const [cabinClass, setCabinClass] = useState(initialValues?.cabinClass || CABIN_CLASSES.ECONOMY);
+-    // const [segments, setSegments] = useState([emptySegment()]);
+-    // const [returnDate, setReturnDate] = useState("");
+-    // const [passengers, setPassengers] = useState(EMPTY_PASSENGERS);
+-    // const [cabinClass, setCabinClass] = useState(CABIN_CLASSES.ECONOMY);
++    /* Класс обслуживания формой НЕ РЕДАКТИРУЕТСЯ: его выбирают в колонке
++       фильтров на /s7, оттуда он приезжает в initialValues. Значение всё
++       равно должно жить здесь — оно уходит в payload (buildSearchPayload)
++       и проверяется валидацией. Поэтому взята только первая половина
++       useState: сеттера нет, менять значение изнутри формы нечем. */
++    const [cabinClass] = useState(initialValues?.cabinClass || CABIN_CLASSES.ECONOMY);
+     const [showPassengers, setShowPassengers] = useState(false);
+     const [wasSubmitted, setWasSubmitted] = useState(false);
+     const passengersTriggerRef = useRef(null);
+@@ -123,7 +123,7 @@ const SearchForm = ({ onSearch,
+ 
+     const closePassengers = useCallback(() => setShowPassengers(false), []);
+ 
+-    /* Нажатие по «фону» плашки «Пассажиры и класс» раскрывает список — так же,
++    /* Нажатие по «фону» плашки «Пассажиры» раскрывает список — так же,
+        как у полей аэропорта и даты. Кнопка со значением и иконка сохраняют
+        роль переключателя: они интерактивны и этим обработчиком не ловятся
+        (см. fieldSurface.js). preventDefault оставляет фокус на кнопке, иначе
+@@ -272,14 +272,17 @@ const SearchForm = ({ onSearch,
+                     </>
+                 )}
+ 
+-                {/* Пассажиры и класс */}
++                {/* Пассажиры */}
+                 <div
+                     className="form-group passengers"
+                     ref={passengersTriggerRef}
+                     style={{gridColumn: 5, gridRow: passengersRow}}
+                     onMouseDown={handlePassengersSurfaceMouseDown}
+                 >
+-                    <label id="passengers-label">Пассажиры и класс</label>
++                    {/* Подпись — «Пассажиры», без «и класс»: класс выбирается
++                        в колонке фильтров, и обещать здесь то, чего в поле
++                        нет, нельзя. */}
++                    <label id="passengers-label">Пассажиры</label>
+                     <button
+                         type="button"
+                         ref={passengersButtonRef}
+@@ -289,14 +292,14 @@ const SearchForm = ({ onSearch,
+                         aria-labelledby="passengers-label"
+                         onClick={() => setShowPassengers((v) => !v)}
+                     >
+-                        {pluralPassengers(totalPassengers)}, {CABIN_CLASS_LABELS[cabinClass].toLowerCase()}
++                        {pluralPassengers(totalPassengers)}
+                     </button>
+ 
+                     <button
+                         type="button"
+                         className="field-icon"
+                         tabIndex={-1}
+-                        aria-label="Пассажиры и класс: открыть"
++                        aria-label="Пассажиры: открыть список"
+                         onMouseDown={(e) => e.preventDefault()}
+                         onClick={() => setShowPassengers((v) => !v)}
+                     />
+@@ -305,8 +308,6 @@ const SearchForm = ({ onSearch,
+                         <PassengerSelector
+                             passengers={passengers}
+                             onChange={setPassengers}
+-                            cabinClass={cabinClass}
+-                            onCabinClassChange={setCabinClass}
+                             onClose={closePassengers}
+                             error={errorFor("passengers")}
+                             triggerRef={passengersTriggerRef}
+diff --git a/frontend/src/index.js b/frontend/src/index.js
+index 8a8044f..e9f2571 100644
+--- a/frontend/src/index.js
++++ b/frontend/src/index.js
+@@ -2,7 +2,7 @@ import React from 'react';
+ import ReactDOM from 'react-dom/client';
+ import './index.css';
+ import App from './App';
+-import { applyTheme, resolveInitialTheme } from './theme/theme';
++import { applyInitialTheme } from './theme/theme';
+ import reportWebVitals from './reportWebVitals';
+ 
+ /* Тема ставится ДО первой отрисовки React. Основную работу делает
+@@ -11,7 +11,7 @@ import reportWebVitals from './reportWebVitals';
+    ниже — подстраховка на случай, если разметку заменят на серверную или
+    скрипт из <head> уберут: повторное применение того же значения ничего
+    не стоит и ничего не ломает. Подробности в theme/theme.js. */
+-applyTheme(resolveInitialTheme());
++applyInitialTheme();
+ 
+ const root = ReactDOM.createRoot(document.getElementById('root'));
+ root.render(
+diff --git a/frontend/src/theme/theme.js b/frontend/src/theme/theme.js
+index 59742ef..4fcda28 100644
+--- a/frontend/src/theme/theme.js
++++ b/frontend/src/theme/theme.js
+@@ -1,11 +1,26 @@
+ /* frontend/src/theme/theme.js
+    Состояние темы: хранение, применение, подписка.
+ 
+-   ЧТО ЭТО ТАКОЕ. Тема — это одно значение ("dark" | "light"), которое
+-   попадает в атрибут data-theme на <html>. Дальше всё делает CSS:
+-   theme/tokens.css объявляет два набора значений для одних и тех же
+-   переменных, и браузер сам пересчитывает страницу. Ни один компонент про
+-   тему не знает и знать не должен.
++   ДВА РАЗНЫХ ПОНЯТИЯ, которые легко перепутать:
++
++     ПРЕДПОЧТЕНИЕ (preference) — что выбрал человек:
++         "system" | "light" | "dark".
++         Это то, что хранится и что показывает кнопка в шапке.
++
++     ДЕЙСТВУЮЩАЯ ТЕМА (resolved) — что нарисовано на экране:
++         "light" | "dark".
++         Это то, что попадает в атрибут data-theme на <html> и читает CSS.
++
++   При preference = "system" действующая тема вычисляется из системной
++   настройки и МЕНЯЕТСЯ ВЖИВУЮ: человек переключил тему в macOS или Android —
++   сайт перекрасился в ту же секунду, без перезагрузки. При "light" или
++   "dark" выбор закреплён и системные изменения игнорируются.
++
++   ПОЧЕМУ ТРИ СОСТОЯНИЯ, А НЕ ДВА. С двумя («светлая» / «тёмная») первое же
++   нажатие кнопки навсегда отвязывает сайт от системы: вернуться к «как на
++   устройстве» становится нечем, и человек, у которого система сама
++   переключается по расписанию, остаётся с одной темой круглые сутки. Третье
++   состояние стоит одного значка в шапке и возвращает эту возможность.
+ 
+    ПОЧЕМУ АТРИБУТ НА <html>, А НЕ КЛАСС НА ОБЁРТКЕ СТРАНИЦЫ.
+    В theme/base.css есть правило `html { background: var(--gtd-bg) }` — оно
+@@ -13,70 +28,72 @@
+    переключать классом на .gtd-page, элемент <html> останется со старым
+    фоном, и при оттягивании страницы будет видна полоса чужого цвета.
+ 
+-   ПОЧЕМУ ЗНАЧЕНИЕ ПРИМЕНЯЕТСЯ ДО ОТРИСОВКИ REACT (см. index.js).
+-   Если ставить атрибут в useEffect, первый кадр отрисуется в теме по
+-   умолчанию, и человек с выбранной светлой темой увидит вспышку тёмного
+-   экрана. applyTheme вызывается на уровне модуля в index.js — то есть
+-   раньше, чем React смонтирует дерево.
+-
+-   ТРИ ИСТОЧНИКА ЗНАЧЕНИЯ, в порядке убывания приоритета:
+-     1. явный выбор человека — localStorage;
+-     2. системная настройка — prefers-color-scheme;
+-     3. тёмная тема как значение по умолчанию (основное оформление проекта).
+-
+-   Пока выбор не сделан, сайт следует за системой и реагирует на её смену
+-   на лету. Как только кнопка нажата, выбор фиксируется и системные
+-   изменения игнорируются — иначе кнопка «не работает» после того, как
+-   у человека в полночь сработало автопереключение в ОС.
++   ПОЧЕМУ ЗНАЧЕНИЕ ПРИМЕНЯЕТСЯ ДО ОТРИСОВКИ REACT.
++   Иначе первый кадр придёт в теме по умолчанию, и человек со светлой темой
++   увидит вспышку тёмного экрана. Основную работу делает синхронный скрипт в
++   public/index.html — он отрабатывает раньше, чем загрузится бандл;
++   index.js повторяет вызов на случай, если разметку заменят на серверную.
+ */
+ 
+ import { useCallback, useEffect, useState } from "react";
+ 
+-export const THEMES = { DARK: "dark", LIGHT: "light" };
++/** Предпочтения — то, что выбирает человек и что хранится. */
++export const PREFERENCES = { SYSTEM: "system", LIGHT: "light", DARK: "dark" };
++
++/** Действующие темы — то, что попадает в data-theme и читает CSS. */
++export const THEMES = { LIGHT: "light", DARK: "dark" };
++
++/** Порядок обхода по нажатию кнопки. */
++export const PREFERENCE_ORDER = [PREFERENCES.SYSTEM, PREFERENCES.LIGHT, PREFERENCES.DARK];
+ 
+ const STORAGE_KEY = "gtd-theme";
+ 
+-/* Цвет строки состояния мобильного браузера. Значения совпадают с
+-   --gtd-bg из tokens.css: <meta> читает браузер, а не CSS, и подставить
+-   туда переменную нельзя. При правке палитры править и здесь. */
++/* Цвет строки состояния мобильного браузера. Значения совпадают с --gtd-bg
++   из tokens.css: <meta> читает браузер, а не CSS, и подставить туда
++   переменную нельзя. При правке палитры править и здесь. */
+ const THEME_COLOR = {
+     [THEMES.DARK]: "#0A0C0E",
+     [THEMES.LIGHT]: "#F4F6F8",
+ };
+ 
+ const isTheme = (value) => value === THEMES.DARK || value === THEMES.LIGHT;
++const isPreference = (value) => value === PREFERENCES.SYSTEM || isTheme(value);
+ 
+ /* localStorage бросает исключение в приватном режиме Safari и при
+    запрещённых сайтовых данных. Отсутствие сохранения — не повод уронить
+    страницу, поэтому оба обращения обёрнуты. */
+-export const readStoredTheme = () => {
++export const readStoredPreference = () => {
+     try {
+         const value = window.localStorage.getItem(STORAGE_KEY);
+-        return isTheme(value) ? value : null;
++        return isPreference(value) ? value : null;
+     } catch (ignored) {
+         return null;
+     }
+ };
+ 
+-const storeTheme = (theme) => {
++const storePreference = (preference) => {
+     try {
+-        window.localStorage.setItem(STORAGE_KEY, theme);
++        window.localStorage.setItem(STORAGE_KEY, preference);
+     } catch (ignored) {
+         /* приватный режим — выбор проживёт до конца сессии */
+     }
+ };
+ 
+ const systemQuery = () =>
+-    typeof window.matchMedia === "function"
++    typeof window !== "undefined" && typeof window.matchMedia === "function"
+         ? window.matchMedia("(prefers-color-scheme: light)")
+         : null;
+ 
+-export const getSystemTheme = () =>
+-    systemQuery()?.matches ? THEMES.LIGHT : THEMES.DARK;
++export const getSystemTheme = () => (systemQuery()?.matches ? THEMES.LIGHT : THEMES.DARK);
+ 
+-export const resolveInitialTheme = () => readStoredTheme() || getSystemTheme();
++/** Значение по умолчанию — «как на устройстве». */
++export const resolveInitialPreference = () => readStoredPreference() || PREFERENCES.SYSTEM;
+ 
+-/** Единственное место, где значение темы попадает в DOM. */
++/** preference -> действующая тема. */
++export const resolveTheme = (preference) =>
++    isTheme(preference) ? preference : getSystemTheme();
++
++/** Единственное место, где действующая тема попадает в DOM. */
+ export const applyTheme = (theme) => {
+     const value = isTheme(theme) ? theme : THEMES.DARK;
+     document.documentElement.setAttribute("data-theme", value);
+@@ -87,41 +104,52 @@ export const applyTheme = (theme) => {
+     return value;
+ };
+ 
++/** Удобная обёртка для index.js: посчитать и применить за один вызов. */
++export const applyInitialTheme = () => applyTheme(resolveTheme(resolveInitialPreference()));
++
+ /**
+  * Хук для кнопки-переключателя.
+  *
+- * Возвращает { theme, toggle, setTheme }. Состояние здесь локальное, и это
+- * сознательно: переключатель на странице ровно один (он внутри SiteHeader,
+- * а шапка не дублируется). Контекст ради одного потребителя — лишний слой.
+- * Если переключателей станет два, состояние поднимается в контекст, а
+- * applyTheme/readStoredTheme остаются теми же.
++ * Возвращает { preference, theme, cycle, setPreference }:
++ *   preference — выбор человека ("system" | "light" | "dark");
++ *   theme      — что действительно нарисовано ("light" | "dark");
++ *   cycle      — перейти к следующему предпочтению по кругу;
++ *   setPreference — задать конкретное.
++ *
++ * Состояние здесь локальное, и это сознательно: переключатель на странице
++ * ровно один (он внутри SiteHeader, а шапка не дублируется). Контекст ради
++ * одного потребителя — лишний слой. Если переключателей станет два,
++ * состояние поднимается в контекст, а функции ниже остаются теми же.
+  */
+ export const useTheme = () => {
+-    const [theme, setThemeState] = useState(() =>
+-        typeof document === "undefined"
+-            ? THEMES.DARK
+-            : document.documentElement.getAttribute("data-theme") || resolveInitialTheme(),
+-    );
+-
+-    const setTheme = useCallback((next) => {
+-        const value = applyTheme(next);
+-        storeTheme(value);
+-        setThemeState(value);
++    const [preference, setPreferenceState] = useState(resolveInitialPreference);
++    const [theme, setThemeState] = useState(() => resolveTheme(resolveInitialPreference()));
++
++    const setPreference = useCallback((next) => {
++        const value = isPreference(next) ? next : PREFERENCES.SYSTEM;
++        storePreference(value);
++        setPreferenceState(value);
++        setThemeState(applyTheme(resolveTheme(value)));
+     }, []);
+ 
+-    const toggle = useCallback(() => {
+-        setTheme(theme === THEMES.DARK ? THEMES.LIGHT : THEMES.DARK);
+-    }, [theme, setTheme]);
+-
+-    /* Слежение за системной настройкой — только пока выбор не сделан. */
++    const cycle = useCallback(() => {
++        const index = PREFERENCE_ORDER.indexOf(preference);
++        setPreference(PREFERENCE_ORDER[(index + 1) % PREFERENCE_ORDER.length]);
++    }, [preference, setPreference]);
++
++    /* Слежение за системной настройкой.
++     *
++     * Подписка живёт всегда, а не только в режиме "system": слушатель
++     * дешёвый, а условие проверяется в момент события. Так исключён
++     * классический дефект — человек переключился на «как на устройстве»,
++     * а подписки на этот момент нет, потому что эффект не перезапустился. */
+     useEffect(() => {
+         const query = systemQuery();
+         if (!query) return undefined;
+ 
+         const onChange = () => {
+-            if (readStoredTheme()) return;
+-            const next = applyTheme(query.matches ? THEMES.LIGHT : THEMES.DARK);
+-            setThemeState(next);
++            if (preference !== PREFERENCES.SYSTEM) return;
++            setThemeState(applyTheme(query.matches ? THEMES.LIGHT : THEMES.DARK));
+         };
+ 
+         /* addListener — устаревший путь для Safari < 14. */
+@@ -132,7 +160,7 @@ export const useTheme = () => {
+             if (query.removeEventListener) query.removeEventListener("change", onChange);
+             else query.removeListener(onChange);
+         };
+-    }, []);
++    }, [preference]);
+ 
+-    return { theme, setTheme, toggle };
++    return { preference, theme, cycle, setPreference };
+ };
+-- 
+2.43.0
+
