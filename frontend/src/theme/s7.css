@@ -1,5 +1,5 @@
 /* frontend/src/theme/s7.css
-   Тёмная тема страницы /s7.
+   Тема страницы /s7 — обе темы сразу.
 
    РАЗМЕТКА НЕ МЕНЯЕТСЯ. Файл только перекрашивает то, что уже нарисовано:
    фильтры, карточки рейсов, слайдеры, состояния выдачи. Раскладку задают
@@ -13,6 +13,10 @@
    ПОРЯДОК ПОДКЛЮЧЕНИЯ. Файл идёт последним в S7.jsx, но на это не
    полагается: каждый селектор начинается с .gtd-theme, то есть выигрывает
    специфичностью. Порядок важен только для читаемости сборки.
+
+   ЦВЕТА. Ни одного литерального цвета в этом файле нет и быть не должно:
+   всё через токены из theme/tokens.css, где объявлены обе темы. Правило
+   проверяется поиском по «#» и «rgba(» — совпадений быть не может.
 
    Разделы:
      1. Каркас страницы
@@ -67,13 +71,13 @@
     position: absolute;
     inset: 0 0 auto 0;
     height: 1px;
-    background: linear-gradient(90deg, rgba(255, 255, 255, .28), rgba(255, 255, 255, 0) 62%);
+    background: var(--gtd-glass-sheen);
     pointer-events: none;
 }
 
 @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
     .gtd-theme .main-container .search-form {
-        background: rgba(17, 20, 23, .92);
+        background: var(--gtd-glass-fallback);
     }
 }
 
@@ -131,12 +135,33 @@
 
 /* ==================== 4. Галочки и радиокнопки ==================== */
 
-/* Попутно исправлен дефект, а не только цвет. В FiltersSearchAir.css у
-   отмеченной галочки заливка `background: #000000`, а сама «птичка»
-   нарисована как `border: solid #000000` — чёрное по чёрному. То есть
-   отмеченный чекбокс и сейчас отличается от пустого только заливкой, самой
-   галочки не видно ни на одном экране. Здесь «птичка» красится в цвет фона
-   страницы, то есть контрастна заливке по определению. */
+/* ОТМЕЧЕННОЕ СОСТОЯНИЕ — СПЛОШНАЯ ЗАЛИВКА, БЕЗ ПТИЧКИ И БЕЗ ТОЧКИ.
+
+   Что было раньше и почему это не работало:
+
+     * галочка. В FiltersSearchAir.css отмеченный чекбокс заливался
+       `background: #000000`, а «птичка» рисовалась как `border: solid
+       #000000` — чёрное по чёрному. Галочки не было видно НИ В ОДНОЙ теме,
+       отмеченный чекбокс отличался от пустого только заливкой. То есть
+       фактически интерфейс и так работал заливкой, просто с невидимым
+       мусором поверх;
+
+     * точка. Радиокнопка рисовалась кольцом (inset-тень 4px), и на 18px
+       кружке белое кольцо в 1.5px вокруг белой точки читается как грязь,
+       особенно на сетчатых экранах при дробном масштабе.
+
+   Решение: состояние «выбрано» кодируется одним признаком — заливкой.
+   Признак различения элементов остаётся геометрическим: квадрат со
+   скруглением — независимая отметка, круг — выбор одного из списка. Это
+   ровно то соглашение, которого держится переключатель типа поездки
+   (theme/form.css, раздел 11), так что вся страница объясняет «выбрано»
+   одинаково.
+
+   Плата за решение названа честно: отмеченный чекбокс и отмеченная
+   радиокнопка отличаются только формой контура, без внутреннего значка.
+   На 18px это различимо, но если понадобится вернуть птичку — снять
+   display: none у ::after и перекрасить его в --gtd-on-accent. */
+
 .gtd-theme .filters-left .checkmark,
 .gtd-theme .filters-right .checkmark {
     width: 18px;
@@ -153,35 +178,49 @@
     border-color: var(--gtd-accent);
 }
 
+/* Птичка из FiltersSearchAir.css. display: none, а не прозрачный цвет:
+   псевдоэлемент не должен занимать место и участвовать в отрисовке. */
 .gtd-theme .filters-left input[type="checkbox"]:checked + .checkmark::after,
 .gtd-theme .filters-right input[type="checkbox"]:checked + .checkmark::after {
-    border-color: var(--gtd-bg);
+    display: none;
 }
 
-/* Радиокнопка фильтров (сортировка). Точка внутри кружка вместо сплошной
-   заливки — так же, как в переключателе типа поездки. inset-тень, а не
-   ::after: псевдоэлемент у .radiomark уже занят правилами S7.css. */
 .gtd-theme .filters-left .radiomark,
 .gtd-theme .filters-right .radiomark {
     width: 18px;
     height: 18px;
     border: 1.5px solid var(--gtd-muted);
     background: transparent;
-    transition: border-color 150ms, box-shadow 150ms;
+    transition: background 150ms, border-color 150ms;
 }
 
 .gtd-theme .filters-left input[type="radio"]:checked + .radiomark,
 .gtd-theme .filters-right input[type="radio"]:checked + .radiomark {
     border-color: var(--gtd-accent);
-    background: transparent;
-    box-shadow: inset 0 0 0 4px var(--gtd-accent);
+    background: var(--gtd-accent);
+    /* Кольцо прежней версии снимается явно: правило box-shadow осталось бы
+       в силе, если этот файл когда-нибудь подключат вместе со старым. */
+    box-shadow: none;
 }
 
+/* Точка внутри кружка (S7.css рисует её через ::after у .radiomark). */
+.gtd-theme .filters-left input[type="radio"]:checked + .radiomark::after,
+.gtd-theme .filters-right input[type="radio"]:checked + .radiomark::after {
+    display: none;
+}
+
+/* Обводка фокуса — ТОЛЬКО с клавиатуры.
+
+   Прежняя редакция ловила :focus-within у .filter-item (см.
+   S7.responsive.css), а :focus-within срабатывает и от мыши: любой клик по
+   фильтру оставлял вокруг квадратика или кружка синий контур, который потом
+   не уходил. Здесь и там правило переведено на :focus-visible, а цвет взят
+   из токена --gtd-focus-ring вместо системного синего #4a90e2. */
 .gtd-theme .filters-left input:focus-visible + .checkmark,
 .gtd-theme .filters-left input:focus-visible + .radiomark,
 .gtd-theme .filters-right input:focus-visible + .checkmark,
 .gtd-theme .filters-right input:focus-visible + .radiomark {
-    outline: 2px solid var(--gtd-accent);
+    outline: 2px solid var(--gtd-focus-ring);
     outline-offset: 3px;
 }
 
@@ -199,24 +238,45 @@
     font-variant-numeric: tabular-nums;
 }
 
+/* ЯРКОСТЬ. Раньше выбранный отрезок и оба ползунка красились в --gtd-accent
+   (в тёмной теме это #EEF3F7 — самый светлый тон шкалы). Акцентом на /s7
+   помечается ровно одно состояние — отмеченный фильтр; три слайдера в той
+   же колонке, светящиеся тем же цветом, перетягивали внимание на себя, хотя
+   ничего не сообщают. Теперь у них собственные роли на ступень тише
+   (--gtd-slider-*, объявлены в tokens.css для обеих тем).
+
+   ГЕОМЕТРИЯ. В DoubleTimeSlider.css у .slider-range стоит height: 161%.
+   Трек — 2px, значит отрезок получался 3.2px и свисал под линию: широкая
+   светлая полоса поверх тонкой тёмной. Это и читалось как «слишком ярко».
+   Отрезок выровнен по треку; разницу между «есть выбор» и «нет выбора»
+   теперь несёт цвет, а не толщина. */
 .gtd-theme .slider-track {
-    background: var(--gtd-line);
+    background: var(--gtd-slider-track);
 }
 
-/* Выбранный отрезок — единственное «активное» состояние в колонке фильтров,
-   поэтому он один красится акцентом. */
 .gtd-theme .slider-range {
-    background: var(--gtd-accent);
+    height: 100%;
+    top: 0;
+    background: var(--gtd-slider-range);
 }
 
 .gtd-theme .slider-handle {
-    background: var(--gtd-accent);
-    box-shadow: 0 0 0 4px rgba(10, 12, 14, .9);
+    background: var(--gtd-slider-handle);
+    /* Кольцо цвета фона отделяет ползунок от трека и от соседнего ползунка,
+       когда диапазон сжат до минимума. */
+    box-shadow: 0 0 0 4px var(--gtd-slider-halo);
+}
+
+/* Перетаскиваемый ползунок подсвечивается — единственный момент, когда
+   слайдеру уместно стать заметнее фильтров. */
+.gtd-theme .slider-handle.is-active,
+.gtd-theme .slider-handle:hover {
+    background: var(--gtd-text-1);
 }
 
 .gtd-theme .tooltip {
     background: var(--gtd-surface-2);
-    box-shadow: inset 0 0 0 1px var(--gtd-line), 0 8px 24px rgba(0, 0, 0, .5);
+    box-shadow: inset 0 0 0 1px var(--gtd-line), var(--gtd-shadow-popover);
     color: var(--gtd-text-1);
     font-family: var(--gtd-font);
 }
@@ -284,7 +344,7 @@
 }
 
 .gtd-theme .select-button:hover {
-    background: rgba(238, 243, 247, .1);
+    background: var(--gtd-hairline-mid);
     color: var(--gtd-accent);
 }
 
@@ -327,35 +387,27 @@
    панель у нижнего края окна (.filters-dock) и обёртка обоих блоков
    фильтров (.filters-panel), которая ниже 1024px превращается в шторку.
 
+   ЦВЕТА ЗДЕСЬ БОЛЬШЕ НЕТ. Раньше в этом разделе перекрашивались фон и текст
+   шторки, потому что FiltersPanel.css был написан на литеральных #000/#fff.
+   Теперь тот файл сам построен на токенах и в обеих темах выглядит верно, а
+   этому разделу остаётся только типографика: заглавные буквы и разрядка,
+   которыми на /s7 набраны все служебные подписи.
+
    На десктопе у .filters-panel стоит display: contents — бокс не создаётся,
    и фон на нём не рисуется. Поэтому правило ниже безусловное: оно
    срабатывает ровно тогда, когда обёртка становится настоящей шторкой. */
 .gtd-theme .filters-panel {
-    background: var(--gtd-surface);
     color: var(--gtd-text-2);
 }
 
-.gtd-theme .filters-fab {
-    background: var(--gtd-surface);
-    box-shadow: inset 0 0 0 1px var(--gtd-hairline);
-    border-radius: var(--gtd-radius);
-    color: var(--gtd-text-1);
-    font-family: var(--gtd-font);
+.gtd-theme .filters-fab,
+.gtd-theme .filters-dock__button {
     letter-spacing: var(--gtd-track-eyebrow);
     text-transform: uppercase;
     font-size: 13px;
 }
 
-.gtd-theme .filters-fab:hover {
+.gtd-theme .filters-fab:hover,
+.gtd-theme .filters-dock__button:hover {
     background: var(--gtd-surface-2);
-}
-
-.gtd-theme .filters-dock {
-    background: var(--gtd-surface);
-    box-shadow: inset 0 1px 0 var(--gtd-hairline);
-    color: var(--gtd-accent);
-    font-family: var(--gtd-font);
-    letter-spacing: var(--gtd-track-eyebrow);
-    text-transform: uppercase;
-    font-size: 13px;
 }

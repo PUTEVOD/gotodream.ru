@@ -4,7 +4,44 @@
     <meta charset="utf-8" />
     <link rel="icon" href="%PUBLIC_URL%/favicon.ico" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <meta name="theme-color" content="#000000" />
+    <meta name="theme-color" content="#0A0C0E" />
+
+    <!--
+      Тема выставляется ДО загрузки бандла.
+
+      Зачем отдельный скрипт, если то же самое делает src/theme/theme.js.
+      Всё, что лежит в бандле, выполняется после его загрузки и разбора —
+      это десятки миллисекунд на быстрой сети и заметно больше на медленной.
+      Всё это время документ стоит без атрибута data-theme, то есть в теме
+      по умолчанию (тёмной). Человек с выбранной светлой темой видит вспышку
+      тёмного экрана при каждом открытии сайта. Скрипт ниже — единственный
+      способ этого избежать: он синхронный, стоит в <head> и отрабатывает
+      раньше первой отрисовки.
+
+      ЦЕНА РЕШЕНИЯ: логика выбора темы существует в двух местах. Здесь она
+      сведена к минимуму (ключ хранилища и системный запрос), всё остальное —
+      в src/theme/theme.js. При изменении ключа "gtd-theme" правьте ОБА
+      файла; ключ намеренно один и тот же, найти второе вхождение можно
+      поиском по строке.
+
+      try/catch: обращение к localStorage бросает исключение в приватном
+      режиме Safari и при запрещённых сайтовых данных. Упасть здесь означало
+      бы не отрисовать страницу вообще.
+    -->
+    <script>
+      (function () {
+        var theme = null;
+        try { theme = localStorage.getItem('gtd-theme'); } catch (e) {}
+        if (theme !== 'light' && theme !== 'dark') {
+          theme = window.matchMedia &&
+                  window.matchMedia('(prefers-color-scheme: light)').matches
+                    ? 'light' : 'dark';
+        }
+        document.documentElement.setAttribute('data-theme', theme);
+        var meta = document.querySelector('meta[name="theme-color"]');
+        if (meta) meta.setAttribute('content', theme === 'light' ? '#F4F6F8' : '#0A0C0E');
+      })();
+    </script>
     <meta
       name="description"
       content="Web site created using create-react-app"

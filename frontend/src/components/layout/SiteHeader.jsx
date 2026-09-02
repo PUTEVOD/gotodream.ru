@@ -1,10 +1,11 @@
 import React, { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { SECTIONS, sectionLabel } from "./sections";
+import ThemeToggle from "./ThemeToggle";
 import "../styles/SiteHeader.css";
 
 /**
- * Шапка сайта: бургер, логотип, переключатель языков.
+ * Шапка сайта: бургер, логотип, переключатель темы и языков.
  *
  * Переключатель языков нарисован, но не подключён: интернационализации в
  * проекте нет. Поэтому RU/EN/中文 — это span, а не button. Кнопка, которая
@@ -55,10 +56,18 @@ const SiteHeader = () => {
 
                 <Link to="/" className="gtd-header__logo">GO TO DREAM</Link>
 
-                <div className="gtd-header__lang">
-                    <span className="is-active">RU</span>
-                    <span>EN</span>
-                    <span>中文</span>
+                {/* Правая колонка шапки. Переключатель темы стоит ПЕРЕД
+                    языками, а не после: он рабочий, а языки — заглушка, и
+                    ниже 560px языки скрываются целиком. При обратном порядке
+                    единственная действующая кнопка уезжала бы к самому краю
+                    экрана на телефоне. */}
+                <div className="gtd-header__tools">
+                    <ThemeToggle />
+                    <div className="gtd-header__lang">
+                        <span className="is-active">RU</span>
+                        <span>EN</span>
+                        <span>中文</span>
+                    </div>
                 </div>
             </header>
 

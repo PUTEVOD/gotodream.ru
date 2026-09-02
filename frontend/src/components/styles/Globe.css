@@ -23,7 +23,7 @@
    здесь — только цвет, чтобы контур подчинялся теме. */
 .gtd-globe__land,
 .gtd-globe__limb {
-    stroke: var(--gtd-line);
+    stroke: var(--gtd-globe-line);
 }
 
 .gtd-globe__marks {

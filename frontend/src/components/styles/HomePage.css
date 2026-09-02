@@ -69,7 +69,9 @@
 }
 
 /* Стеклянная панель. Блик по верхней кромке — отдельный псевдоэлемент, а не
-   border-top: градиент вдоль кромки границей не выразить. */
+   border-top: градиент вдоль кромки границей не выразить.
+   Цвет блика и запасная заливка — токены: в светлой теме «блик» читается
+   наоборот, лёгким затемнением (см. --gtd-glass-sheen в tokens.css). */
 .gtd-panel {
     position: relative;
     margin-top: 16px;
@@ -86,7 +88,7 @@
     position: absolute;
     inset: 0 0 auto 0;
     height: 1px;
-    background: linear-gradient(90deg, rgba(255, 255, 255, .28), rgba(255, 255, 255, 0) 62%);
+    background: var(--gtd-glass-sheen);
     pointer-events: none;
 }
 
@@ -94,7 +96,7 @@
    прозрачная панель на фоне контура глобуса читается плохо — подставляем
    непрозрачную заливку. */
 @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
-    .gtd-panel { background: rgba(17, 20, 23, .92); }
+    .gtd-panel { background: var(--gtd-glass-fallback); }
 }
 
 .gtd-hero__advanced {
@@ -251,8 +253,11 @@
     color: var(--gtd-muted);
 }
 
+/* Разделитель «Принципов» — тот же металл, что у обводок, только
+   развёрнутый по вертикали. Стопы берутся из общего токена: иначе при
+   правке палитры разделитель и обводки разъедутся. */
 .gtd-divider {
-    background: linear-gradient(180deg, #4A525A, #EEF3F7, #8A939B);
+    background: linear-gradient(180deg, var(--gtd-metal-stops));
 }
 
 /* ============================= 5. Адаптив ============================= */
@@ -288,7 +293,7 @@
        направление градиента и роли высоты/ширины меняются местами. */
     .gtd-divider {
         height: 1px;
-        background: linear-gradient(90deg, #4A525A, #EEF3F7, #8A939B);
+        background: linear-gradient(90deg, var(--gtd-metal-stops));
     }
 }
 

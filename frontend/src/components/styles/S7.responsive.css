@@ -452,7 +452,7 @@ img, svg, video, canvas {
         position: fixed;
         inset: 0;
         z-index: 30;
-        background: rgba(0, 0, 0, .55);
+        background: var(--gtd-scrim);
         /* pointer-events: none — клик проходит сквозь подложку и попадает
            в обработчик «клик вне списка», который и закрывает список. */
         pointer-events: none;
@@ -462,21 +462,21 @@ img, svg, video, canvas {
         .search-form form:has(.airport-suggestions)::before,
         .search-form form:has(.passenger-dropdown)::before,
         .search-form form:has(.calendar-popup)::before {
-            background: rgba(0, 0, 0, .4);
+            background: var(--gtd-scrim-soft);
             -webkit-backdrop-filter: blur(3px);
             backdrop-filter: blur(3px);
         }
     }
 
-    /* Раскрытые списки имеют тот же фон #000, что и поля, и сливаются с ними.
-       Приподнимаем фон на пару тонов, усиливаем рамку и тень — окно читается
+    /* Раскрытые списки имеют тот же фон, что и поля, и сливаются с ними.
+       Приподнимаем фон на ступень, усиливаем рамку и тень — окно читается
        как отдельный слой, а не как продолжение формы. */
     .airport-suggestions,
     .passenger-dropdown,
     .calendar-popup {
-        background: #16171f;
-        border: 1px solid #3c3d4b;
-        box-shadow: 0 18px 44px rgba(0, 0, 0, .75);
+        background: var(--gtd-surface-2);
+        border: 1px solid var(--gtd-line);
+        box-shadow: var(--gtd-shadow-popover);
     }
 }
 
@@ -634,7 +634,7 @@ img, svg, video, canvas {
         gap: 12px;
         text-align: left;
         padding-top: 12px;
-        border-top: 1px solid #2a2a2a;
+        border-top: 1px solid var(--gtd-line);
     }
 
     .flight-price {
@@ -684,7 +684,7 @@ img, svg, video, canvas {
 /* Ползунки получили role="slider" и tabIndex=0 (см. DoubleTimeSlider.jsx),
    значит им нужен видимый фокус и подсказка при работе с клавиатуры. */
 .slider-handle:focus-visible {
-    outline: 2px solid #4a90e2;
+    outline: 2px solid var(--gtd-focus-ring);
     outline-offset: 4px;
 }
 
@@ -723,9 +723,29 @@ img, svg, video, canvas {
 }
 
 /* Фокус с клавиатуры виден на кастомных галочках и радиокнопках:
-   нативный input скрыт, и без этого правила обводке не на чем появиться. */
-.filter-item:focus-within .checkmark,
-.filter-item:focus-within .radiomark {
-    outline: 2px solid #4a90e2;
+   нативный input скрыт, и без этого правила обводке не на чем появиться.
+
+   ИСПРАВЛЕНО ДВЕ ВЕЩИ.
+
+   1. Было :focus-within у .filter-item. Этот псевдокласс срабатывает от
+      ЛЮБОГО получения фокуса, в том числе от щелчка мышью, — а щелчок по
+      фильтру ставит фокус на скрытый input. Поэтому после каждого нажатия
+      вокруг квадратика или кружка оставался контур, который не уходил до
+      следующего щелчка в другом месте. Тот же контур появлялся и в
+      переключателе типа поездки: он тоже собран на .filter-item.
+      :focus-visible браузер зажигает только тогда, когда пользователь
+      действительно работает с клавиатуры.
+
+   2. Цвет #4a90e2 — системный синий, не входящий ни в одну из палитр
+      проекта. Заменён на токен --gtd-focus-ring (см. theme/tokens.css),
+      который в обеих темах равен акценту.
+
+   Селектор ~ , а не + : в колонках фильтров разметка `input + .checkmark`,
+   а в переключателе типа поездки между ними ничего нет, но порядок общий —
+   общий сиблинг-комбинатор покрывает оба случая и не зависит от того,
+   появится ли между ними ещё один узел. */
+.filter-item input:focus-visible ~ .checkmark,
+.filter-item input:focus-visible ~ .radiomark {
+    outline: 2px solid var(--gtd-focus-ring);
     outline-offset: 2px;
 }

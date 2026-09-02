@@ -59,13 +59,16 @@
 }
 
 /* Системные виджеты внутри формы — календарь input[type=date], полосы
-   прокрутки, автозаполнение — рисует браузер. Он берёт их палитру не из
-   CSS, а из color-scheme: без этой строки на тёмном поле открывается
-   белое системное окно выбора даты. */
+   прокрутки, автозаполнение — рисует браузер: палитру он берёт не из CSS,
+   а из color-scheme. Раньше здесь стояло жёсткое `color-scheme: dark`; со
+   светлой темой оно давало тёмное системное окно выбора даты на белой
+   странице. Свойство наследуется, и объявлено оно теперь один раз на :root
+   в tokens.css — рядом со всеми остальными значениями темы. Строка ниже
+   оставлена как явное указание «здесь ничего не переопределяем». */
 .gtd-theme .search-form input,
 .gtd-theme .search-form select,
 .gtd-theme .search-form textarea {
-    color-scheme: dark;
+    color-scheme: inherit;
 }
 
 /* =========================== 2. Сетка формы =========================== */
@@ -215,12 +218,12 @@
     outline: none;
 }
 
-/* Подсветка выделенного текста. Системная (обычно ярко-синяя или белая)
-   на тёмном фоне выглядит инородно; у input[type=date] ею же красится
-   активный сегмент — день, месяц или год. */
+/* Подсветка выделенного текста. Системная (обычно ярко-синяя) в этой
+   палитре выглядит инородно; у input[type=date] ею же красится активный
+   сегмент — день, месяц или год. */
 .gtd-theme .search-form ::selection {
-    background: rgba(238, 243, 247, .18);
-    color: var(--gtd-accent);
+    background: var(--gtd-selection-bg);
+    color: var(--gtd-text-1);
 }
 
 /* ========================== 5. Иконка поля ========================== */
@@ -235,6 +238,10 @@
     max-width: 20px;
     height: 20px;
     opacity: .5;
+    /* Иконка нарисована светлой обводкой прямо в data-URI и на белом фоне
+       была бы не видна. Подробности и обоснование — у --gtd-icon-filter
+       в theme/tokens.css. */
+    filter: var(--gtd-icon-filter);
 }
 
 /* Прозрачная кнопка поверх иконки. Область нажатия шире картинки: 20px —
@@ -298,7 +305,7 @@
 }
 
 .gtd-theme .search-form .search-button:hover:not(:disabled) {
-    background: rgba(238, 243, 247, .06);
+    background: var(--gtd-hairline);
 }
 
 /* Кнопка «добавить перелёт» в сложном маршруте — второстепенное действие,
@@ -368,7 +375,7 @@
     background: var(--gtd-surface-2);
     border: 1px solid var(--gtd-line);
     border-radius: var(--gtd-radius);
-    box-shadow: 0 24px 60px rgba(0, 0, 0, .55);
+    box-shadow: var(--gtd-shadow-popover);
     color: var(--gtd-text-1);
     font-family: var(--gtd-font);
     /* Собственной прокрутки у окон больше нет: список аэропортов ограничен
@@ -406,9 +413,13 @@
     font-family: var(--gtd-font);
 }
 
+/* Подсветка пункта — полупрозрачная накладка, а не именованная
+   поверхность: окно уже стоит на --gtd-surface-2, и «ещё одна поверхность»
+   потребовала бы третьей ступени шкалы в обеих темах. Накладка работает
+   поверх любого фона и в обеих темах даёт одинаковый по силе отклик. */
 .gtd-theme .search-form .airport-option.is-highlighted,
 .gtd-theme .search-form .airport-option:hover {
-    background: rgba(238, 243, 247, .08);
+    background: var(--gtd-hairline-mid);
 }
 
 .gtd-theme .search-form .airport-option__code {
@@ -451,7 +462,7 @@
    почти белому. */
 .gtd-theme .search-form .calendar-day.is-selected {
     background: var(--gtd-accent);
-    color: var(--gtd-bg);
+    color: var(--gtd-on-accent);
 }
 
 .gtd-theme .search-form .calendar-title {
@@ -492,24 +503,28 @@
     background: transparent;
 }
 
+/* Отмеченное состояние — сплошная заливка без точки внутри.
+
+   ПОЧЕМУ ТАК. То же решение принято для галочек и радиокнопок в колонках
+   фильтров (theme/s7.css, раздел 4), а переключатель типа поездки стоит на
+   той же странице в 20 пикселях над ними. Две разные трактовки одного и
+   того же состояния «выбрано» на одном экране читаются как небрежность.
+   Форма по-прежнему различает элементы: круг — выбор одного из списка,
+   квадрат — независимая отметка.
+
+   Вернуть точку, если решение не понравится: снять display: none у ::after
+   и заменить заливку .radiomark на transparent. Больше ничего не трогать. */
 .gtd-theme .trip-type-selector input[type="radio"]:checked ~ .radiomark {
     border-color: var(--gtd-accent);
-    background: transparent;
+    background: var(--gtd-accent);
 }
 
 .gtd-theme .trip-type-selector input[type="radio"]:checked ~ .radiomark::after {
-    width: 8px;
-    height: 8px;
-    background: var(--gtd-accent);
+    display: none;
 }
 
 .gtd-theme .trip-type-selector input[type="radio"]:checked ~ .trip-type-text {
     color: var(--gtd-text-1);
-}
-
-.gtd-theme .trip-type-selector input[type="radio"]:focus-visible ~ .radiomark {
-    outline: 2px solid var(--gtd-accent);
-    outline-offset: 3px;
 }
 
 /* =========================== 12. Узкий экран =========================== */
