@@ -1,4 +1,5 @@
 import React from "react";
+import { CABIN_CLASS_LABELS } from "../search/contract";
 import "../styles/FlightList.css";
 
 /** 0 → «без пересадок», 1 → «1 пересадка», 2 → «2 пересадки» */
@@ -51,6 +52,16 @@ const FlightList = ({ flights, onFlightClick }) => (
                     </div>
 
                     <div className="flight-price-block">
+                        {/* Класс обязателен на карточке. Один рейс продаётся в
+                            нескольких классах, и сервер возвращает их как
+                            отдельные предложения: без подписи в списке стояли
+                            бы две-три внешне одинаковые строки с разной ценой,
+                            и это читалось бы как ошибка выдачи, а не как
+                            выбор. Подпись стоит над ценой, потому что
+                            объясняет именно её. */}
+                        <div className="flight-cabin">
+                            {CABIN_CLASS_LABELS[flight.cabinClass] || flight.cabinClass}
+                        </div>
                         <div className="flight-price">{formatPrice(flight.price, flight.currency)}</div>
                         <button className="select-button" onClick={() => onFlightClick(flight.id)}>
                             Выбрать

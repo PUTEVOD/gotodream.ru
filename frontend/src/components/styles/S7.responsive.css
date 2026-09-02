@@ -626,15 +626,24 @@ img, svg, video, canvas {
     .duration { font-size: 12px; }
     .airline, .stops { font-size: 11px; }
 
-    /* Цена и кнопка — в одну строку, разнесены по краям. */
+    /* Цена и кнопка — в одну строку, разнесены по краям. Класс
+       обслуживания занимает всю ширину и встаёт над ними отдельной
+       строкой: иначе он стал бы третьим элементом строки и раздвинул
+       цену с кнопкой. */
     .flight-price-block {
         display: flex;
+        flex-wrap: wrap;
         align-items: center;
         justify-content: space-between;
         gap: 12px;
         text-align: left;
         padding-top: 12px;
         border-top: 1px solid var(--gtd-line);
+    }
+
+    .flight-price-block .flight-cabin {
+        flex: 0 0 100%;
+        margin-bottom: -6px;
     }
 
     .flight-price {

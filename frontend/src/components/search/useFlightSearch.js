@@ -5,7 +5,15 @@ import { buildFilters } from "./contract";
 /* Одна и та же ссылка на пустой набор: компоненты сравнивают facets по
    ссылке в зависимостях useMemo/useEffect, и новый литерал на каждый рендер
    давал бы лишние пересчёты. */
-const EMPTY_FACETS = { airlines: [] };
+const EMPTY_FACETS = { airlines: [], cabinClasses: [] };
+
+/** Ответ сервера -> набор фасетов, с которым безопасно работать. */
+const pickFacets = (facets) => {
+    const airlines = Array.isArray(facets?.airlines) ? facets.airlines : [];
+    const cabinClasses = Array.isArray(facets?.cabinClasses) ? facets.cabinClasses : [];
+    if (!airlines.length && !cabinClasses.length) return EMPTY_FACETS;
+    return { airlines, cabinClasses };
+};
 
 /**
  * Вся работа с сетью для страницы поиска: запрос, состояния, отмена гонок,
@@ -15,7 +23,7 @@ const EMPTY_FACETS = { airlines: [] };
  * @returns {{
  *   status: "idle"|"loading"|"success"|"error",
  *   flights: Array,
- *   facets: { airlines: Array<{value: string, count: number}> },
+ *   facets: { airlines: Facet[], cabinClasses: Facet[] },  Facet = {value, count}
  *   error: ApiError|null,
  *   fieldErrors: object|null,
  *   hasSearched: boolean,
@@ -25,7 +33,8 @@ const EMPTY_FACETS = { airlines: [] };
  */
 export function useFlightSearch(filters, { debounceMs = 300 } = {}) {
     /* facets — значения, которые сервер считает осмысленными для фильтров
-       этой конкретной выдачи (сейчас это список авиакомпаний со счётчиками).
+       этой конкретной выдачи: авиакомпании и классы обслуживания со
+       счётчиками предложений.
        Лежат в том же состоянии, что и рейсы, потому что приходят одним
        ответом и обязаны меняться вместе с ним: список компаний, оставшийся
        от прошлого маршрута, — это фильтр, который ничего не находит. */
@@ -60,11 +69,11 @@ export function useFlightSearch(filters, { debounceMs = 300 } = {}) {
             setState({
                 status: "success",
                 flights: Array.isArray(data.flights) ? data.flights : [],
-                // Старый сервер (до появления фасетов) поля не пришлёт —
-                // тогда список авиакомпаний просто не показывается.
-                facets: Array.isArray(data.facets?.airlines)
-                    ? { airlines: data.facets.airlines }
-                    : EMPTY_FACETS,
+                // Каждый список проверяется отдельно: сервер, не знающий про
+                // фасеты (или знающий только про часть), не должен ронять
+                // страницу — соответствующая группа фильтров просто не
+                // покажется.
+                facets: pickFacets(data.facets),
                 error: null,
             });
         } catch (error) {

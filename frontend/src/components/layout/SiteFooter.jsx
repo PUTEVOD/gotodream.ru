@@ -38,7 +38,7 @@ const SiteFooter = () => (
                     <span>Помощь и вопросы</span>
                     <span>+7(902)763-22-06</span>
                     <span>boss@putevod.net</span>
-                    <span>master@putevod.net    </span>
+                    <span>master@putevod.net</span>
                 </div>
             </div>
 

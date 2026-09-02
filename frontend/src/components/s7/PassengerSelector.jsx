@@ -1,5 +1,5 @@
 import React, { useEffect, useRef } from "react";
-import { PASSENGER_TYPES, LIMITS, CABIN_CLASS_LABELS, countSeats } from "../search/contract";
+import { PASSENGER_TYPES, LIMITS, countSeats } from "../search/contract";
 
 /**
  * Одна категория пассажиров. Вынесена на верхний уровень модуля намеренно:
@@ -39,6 +39,14 @@ const PassengerCategory = ({ label, subLabel, value, min, max, onChange }) => (
 
 /**
  * Выпадающий список пассажиров.
+ *
+ * КЛАССА ОБСЛУЖИВАНИЯ ЗДЕСЬ НЕТ. Он выбирается в колонке фильтров на /s7
+ * («Класс обслуживания»), и это единственное место во всём интерфейсе, где
+ * он задаётся. Дублировать выбор в форме означало бы два органа управления
+ * одним значением на одном экране: человек меняет класс в одном месте, а
+ * второе продолжает показывать прежнее — и непонятно, какое из двух
+ * действует.
+ *
  * @param {object}   passengers  { adults, teens, children, infants }
  * @param {Function} onChange    (nextPassengers) => void
  * @param {Function} onClose     закрытие по клику вне и по Escape
@@ -47,8 +55,6 @@ const PassengerCategory = ({ label, subLabel, value, min, max, onChange }) => (
 const PassengerSelector = ({
                                passengers,
                                onChange,
-                               cabinClass,
-                               onCabinClassChange,
                                onClose,
                                error,
                                triggerRef,
@@ -104,30 +110,6 @@ const PassengerSelector = ({
                 ))}
 
                 {error && <div className="field-error">{error}</div>}
-
-                {/* Выбор класса обслуживания.
-
-                    Блок был закомментирован, и из-за этого поле, подписанное
-                    «Пассажиры и класс», показывало класс («1 пассажир,
-                    эконом»), но изменить его было негде: на главной — вообще
-                    никак, на /s7 — только через фильтр в боковой колонке,
-                    который к форме отношения не имеет и отправляется в
-                    запросе отдельным параметром. Возвращён: подпись поля
-                    обещает выбор класса, значение уходит в payload
-                    (buildSearchPayload), обработчик уже был передан пропом. */}
-                <div className="cabin-class-block">
-                    <label className="category-title" htmlFor="cabin-class">Класс обслуживания</label>
-                    <select
-                        id="cabin-class"
-                        className="cabin-class-select"
-                        value={cabinClass}
-                        onChange={(event) => onCabinClassChange(event.target.value)}
-                    >
-                        {Object.entries(CABIN_CLASS_LABELS).map(([value, label]) => (
-                            <option key={value} value={value}>{label}</option>
-                        ))}
-                    </select>
-                </div>
 
                 <div className="tariff-section">
                     <div className="tariff-title">Льготные тарифы</div>

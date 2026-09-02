@@ -7,7 +7,6 @@ import { isFieldSurface } from "./fieldSurface";
 import {
     TRIP_TYPES,
     CABIN_CLASSES,
-    CABIN_CLASS_LABELS,
     LIMITS,
     EMPTY_PASSENGERS,
     todayISO,
@@ -54,11 +53,12 @@ const SearchForm = ({ onSearch,
     );
     const [returnDate, setReturnDate] = useState(initialValues?.returnDate || "");
     const [passengers, setPassengers] = useState(initialValues?.passengers || EMPTY_PASSENGERS);
-    const [cabinClass, setCabinClass] = useState(initialValues?.cabinClass || CABIN_CLASSES.ECONOMY);
-    // const [segments, setSegments] = useState([emptySegment()]);
-    // const [returnDate, setReturnDate] = useState("");
-    // const [passengers, setPassengers] = useState(EMPTY_PASSENGERS);
-    // const [cabinClass, setCabinClass] = useState(CABIN_CLASSES.ECONOMY);
+    /* Класс обслуживания формой НЕ РЕДАКТИРУЕТСЯ: его выбирают в колонке
+       фильтров на /s7, оттуда он приезжает в initialValues. Значение всё
+       равно должно жить здесь — оно уходит в payload (buildSearchPayload)
+       и проверяется валидацией. Поэтому взята только первая половина
+       useState: сеттера нет, менять значение изнутри формы нечем. */
+    const [cabinClass] = useState(initialValues?.cabinClass || CABIN_CLASSES.ECONOMY);
     const [showPassengers, setShowPassengers] = useState(false);
     const [wasSubmitted, setWasSubmitted] = useState(false);
     const passengersTriggerRef = useRef(null);
@@ -123,7 +123,7 @@ const SearchForm = ({ onSearch,
 
     const closePassengers = useCallback(() => setShowPassengers(false), []);
 
-    /* Нажатие по «фону» плашки «Пассажиры и класс» раскрывает список — так же,
+    /* Нажатие по «фону» плашки «Пассажиры» раскрывает список — так же,
        как у полей аэропорта и даты. Кнопка со значением и иконка сохраняют
        роль переключателя: они интерактивны и этим обработчиком не ловятся
        (см. fieldSurface.js). preventDefault оставляет фокус на кнопке, иначе
@@ -272,14 +272,17 @@ const SearchForm = ({ onSearch,
                     </>
                 )}
 
-                {/* Пассажиры и класс */}
+                {/* Пассажиры */}
                 <div
                     className="form-group passengers"
                     ref={passengersTriggerRef}
                     style={{gridColumn: 5, gridRow: passengersRow}}
                     onMouseDown={handlePassengersSurfaceMouseDown}
                 >
-                    <label id="passengers-label">Пассажиры и класс</label>
+                    {/* Подпись — «Пассажиры», без «и класс»: класс выбирается
+                        в колонке фильтров, и обещать здесь то, чего в поле
+                        нет, нельзя. */}
+                    <label id="passengers-label">Пассажиры</label>
                     <button
                         type="button"
                         ref={passengersButtonRef}
@@ -289,14 +292,14 @@ const SearchForm = ({ onSearch,
                         aria-labelledby="passengers-label"
                         onClick={() => setShowPassengers((v) => !v)}
                     >
-                        {pluralPassengers(totalPassengers)}, {CABIN_CLASS_LABELS[cabinClass].toLowerCase()}
+                        {pluralPassengers(totalPassengers)}
                     </button>
 
                     <button
                         type="button"
                         className="field-icon"
                         tabIndex={-1}
-                        aria-label="Пассажиры и класс: открыть"
+                        aria-label="Пассажиры: открыть список"
                         onMouseDown={(e) => e.preventDefault()}
                         onClick={() => setShowPassengers((v) => !v)}
                     />
@@ -305,8 +308,6 @@ const SearchForm = ({ onSearch,
                         <PassengerSelector
                             passengers={passengers}
                             onChange={setPassengers}
-                            cabinClass={cabinClass}
-                            onCabinClassChange={setCabinClass}
                             onClose={closePassengers}
                             error={errorFor("passengers")}
                             triggerRef={passengersTriggerRef}

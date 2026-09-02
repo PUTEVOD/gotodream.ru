@@ -141,6 +141,18 @@
     min-width: 0;
 }
 
+/* Класс обслуживания над ценой. Мелкий, разряжённый, заглавными — это
+   подпись к цене, а не второй заголовок карточки. */
+.flight-cabin {
+    font-size: 12px;
+    line-height: 16px;
+    letter-spacing: .1em;
+    text-transform: uppercase;
+    color: #a0a0a0;
+    margin-bottom: 4px;
+    white-space: nowrap;
+}
+
 .flight-price {
     font-size: 24px;
     font-weight: bold;

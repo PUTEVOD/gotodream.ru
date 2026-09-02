@@ -339,7 +339,8 @@
 
 .gtd-theme .flight-airport,
 .gtd-theme .airline,
-.gtd-theme .stops {
+.gtd-theme .stops,
+.gtd-theme .flight-cabin {
     color: var(--gtd-muted);
 }
 

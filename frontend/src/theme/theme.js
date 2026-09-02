@@ -1,11 +1,26 @@
 /* frontend/src/theme/theme.js
    Состояние темы: хранение, применение, подписка.
 
-   ЧТО ЭТО ТАКОЕ. Тема — это одно значение ("dark" | "light"), которое
-   попадает в атрибут data-theme на <html>. Дальше всё делает CSS:
-   theme/tokens.css объявляет два набора значений для одних и тех же
-   переменных, и браузер сам пересчитывает страницу. Ни один компонент про
-   тему не знает и знать не должен.
+   ДВА РАЗНЫХ ПОНЯТИЯ, которые легко перепутать:
+
+     ПРЕДПОЧТЕНИЕ (preference) — что выбрал человек:
+         "system" | "light" | "dark".
+         Это то, что хранится и что показывает кнопка в шапке.
+
+     ДЕЙСТВУЮЩАЯ ТЕМА (resolved) — что нарисовано на экране:
+         "light" | "dark".
+         Это то, что попадает в атрибут data-theme на <html> и читает CSS.
+
+   При preference = "system" действующая тема вычисляется из системной
+   настройки и МЕНЯЕТСЯ ВЖИВУЮ: человек переключил тему в macOS или Android —
+   сайт перекрасился в ту же секунду, без перезагрузки. При "light" или
+   "dark" выбор закреплён и системные изменения игнорируются.
+
+   ПОЧЕМУ ТРИ СОСТОЯНИЯ, А НЕ ДВА. С двумя («светлая» / «тёмная») первое же
+   нажатие кнопки навсегда отвязывает сайт от системы: вернуться к «как на
+   устройстве» становится нечем, и человек, у которого система сама
+   переключается по расписанию, остаётся с одной темой круглые сутки. Третье
+   состояние стоит одного значка в шапке и возвращает эту возможность.
 
    ПОЧЕМУ АТРИБУТ НА <html>, А НЕ КЛАСС НА ОБЁРТКЕ СТРАНИЦЫ.
    В theme/base.css есть правило `html { background: var(--gtd-bg) }` — оно
@@ -13,70 +28,72 @@
    переключать классом на .gtd-page, элемент <html> останется со старым
    фоном, и при оттягивании страницы будет видна полоса чужого цвета.
 
-   ПОЧЕМУ ЗНАЧЕНИЕ ПРИМЕНЯЕТСЯ ДО ОТРИСОВКИ REACT (см. index.js).
-   Если ставить атрибут в useEffect, первый кадр отрисуется в теме по
-   умолчанию, и человек с выбранной светлой темой увидит вспышку тёмного
-   экрана. applyTheme вызывается на уровне модуля в index.js — то есть
-   раньше, чем React смонтирует дерево.
-
-   ТРИ ИСТОЧНИКА ЗНАЧЕНИЯ, в порядке убывания приоритета:
-     1. явный выбор человека — localStorage;
-     2. системная настройка — prefers-color-scheme;
-     3. тёмная тема как значение по умолчанию (основное оформление проекта).
-
-   Пока выбор не сделан, сайт следует за системой и реагирует на её смену
-   на лету. Как только кнопка нажата, выбор фиксируется и системные
-   изменения игнорируются — иначе кнопка «не работает» после того, как
-   у человека в полночь сработало автопереключение в ОС.
+   ПОЧЕМУ ЗНАЧЕНИЕ ПРИМЕНЯЕТСЯ ДО ОТРИСОВКИ REACT.
+   Иначе первый кадр придёт в теме по умолчанию, и человек со светлой темой
+   увидит вспышку тёмного экрана. Основную работу делает синхронный скрипт в
+   public/index.html — он отрабатывает раньше, чем загрузится бандл;
+   index.js повторяет вызов на случай, если разметку заменят на серверную.
 */
 
 import { useCallback, useEffect, useState } from "react";
 
-export const THEMES = { DARK: "dark", LIGHT: "light" };
+/** Предпочтения — то, что выбирает человек и что хранится. */
+export const PREFERENCES = { SYSTEM: "system", LIGHT: "light", DARK: "dark" };
+
+/** Действующие темы — то, что попадает в data-theme и читает CSS. */
+export const THEMES = { LIGHT: "light", DARK: "dark" };
+
+/** Порядок обхода по нажатию кнопки. */
+export const PREFERENCE_ORDER = [PREFERENCES.SYSTEM, PREFERENCES.LIGHT, PREFERENCES.DARK];
 
 const STORAGE_KEY = "gtd-theme";
 
-/* Цвет строки состояния мобильного браузера. Значения совпадают с
-   --gtd-bg из tokens.css: <meta> читает браузер, а не CSS, и подставить
-   туда переменную нельзя. При правке палитры править и здесь. */
+/* Цвет строки состояния мобильного браузера. Значения совпадают с --gtd-bg
+   из tokens.css: <meta> читает браузер, а не CSS, и подставить туда
+   переменную нельзя. При правке палитры править и здесь. */
 const THEME_COLOR = {
     [THEMES.DARK]: "#0A0C0E",
     [THEMES.LIGHT]: "#F4F6F8",
 };
 
 const isTheme = (value) => value === THEMES.DARK || value === THEMES.LIGHT;
+const isPreference = (value) => value === PREFERENCES.SYSTEM || isTheme(value);
 
 /* localStorage бросает исключение в приватном режиме Safari и при
    запрещённых сайтовых данных. Отсутствие сохранения — не повод уронить
    страницу, поэтому оба обращения обёрнуты. */
-export const readStoredTheme = () => {
+export const readStoredPreference = () => {
     try {
         const value = window.localStorage.getItem(STORAGE_KEY);
-        return isTheme(value) ? value : null;
+        return isPreference(value) ? value : null;
     } catch (ignored) {
         return null;
     }
 };
 
-const storeTheme = (theme) => {
+const storePreference = (preference) => {
     try {
-        window.localStorage.setItem(STORAGE_KEY, theme);
+        window.localStorage.setItem(STORAGE_KEY, preference);
     } catch (ignored) {
         /* приватный режим — выбор проживёт до конца сессии */
     }
 };
 
 const systemQuery = () =>
-    typeof window.matchMedia === "function"
+    typeof window !== "undefined" && typeof window.matchMedia === "function"
         ? window.matchMedia("(prefers-color-scheme: light)")
         : null;
 
-export const getSystemTheme = () =>
-    systemQuery()?.matches ? THEMES.LIGHT : THEMES.DARK;
+export const getSystemTheme = () => (systemQuery()?.matches ? THEMES.LIGHT : THEMES.DARK);
 
-export const resolveInitialTheme = () => readStoredTheme() || getSystemTheme();
+/** Значение по умолчанию — «как на устройстве». */
+export const resolveInitialPreference = () => readStoredPreference() || PREFERENCES.SYSTEM;
 
-/** Единственное место, где значение темы попадает в DOM. */
+/** preference -> действующая тема. */
+export const resolveTheme = (preference) =>
+    isTheme(preference) ? preference : getSystemTheme();
+
+/** Единственное место, где действующая тема попадает в DOM. */
 export const applyTheme = (theme) => {
     const value = isTheme(theme) ? theme : THEMES.DARK;
     document.documentElement.setAttribute("data-theme", value);
@@ -87,41 +104,52 @@ export const applyTheme = (theme) => {
     return value;
 };
 
+/** Удобная обёртка для index.js: посчитать и применить за один вызов. */
+export const applyInitialTheme = () => applyTheme(resolveTheme(resolveInitialPreference()));
+
 /**
  * Хук для кнопки-переключателя.
  *
- * Возвращает { theme, toggle, setTheme }. Состояние здесь локальное, и это
- * сознательно: переключатель на странице ровно один (он внутри SiteHeader,
- * а шапка не дублируется). Контекст ради одного потребителя — лишний слой.
- * Если переключателей станет два, состояние поднимается в контекст, а
- * applyTheme/readStoredTheme остаются теми же.
+ * Возвращает { preference, theme, cycle, setPreference }:
+ *   preference — выбор человека ("system" | "light" | "dark");
+ *   theme      — что действительно нарисовано ("light" | "dark");
+ *   cycle      — перейти к следующему предпочтению по кругу;
+ *   setPreference — задать конкретное.
+ *
+ * Состояние здесь локальное, и это сознательно: переключатель на странице
+ * ровно один (он внутри SiteHeader, а шапка не дублируется). Контекст ради
+ * одного потребителя — лишний слой. Если переключателей станет два,
+ * состояние поднимается в контекст, а функции ниже остаются теми же.
  */
 export const useTheme = () => {
-    const [theme, setThemeState] = useState(() =>
-        typeof document === "undefined"
-            ? THEMES.DARK
-            : document.documentElement.getAttribute("data-theme") || resolveInitialTheme(),
-    );
+    const [preference, setPreferenceState] = useState(resolveInitialPreference);
+    const [theme, setThemeState] = useState(() => resolveTheme(resolveInitialPreference()));
 
-    const setTheme = useCallback((next) => {
-        const value = applyTheme(next);
-        storeTheme(value);
-        setThemeState(value);
+    const setPreference = useCallback((next) => {
+        const value = isPreference(next) ? next : PREFERENCES.SYSTEM;
+        storePreference(value);
+        setPreferenceState(value);
+        setThemeState(applyTheme(resolveTheme(value)));
     }, []);
 
-    const toggle = useCallback(() => {
-        setTheme(theme === THEMES.DARK ? THEMES.LIGHT : THEMES.DARK);
-    }, [theme, setTheme]);
+    const cycle = useCallback(() => {
+        const index = PREFERENCE_ORDER.indexOf(preference);
+        setPreference(PREFERENCE_ORDER[(index + 1) % PREFERENCE_ORDER.length]);
+    }, [preference, setPreference]);
 
-    /* Слежение за системной настройкой — только пока выбор не сделан. */
+    /* Слежение за системной настройкой.
+     *
+     * Подписка живёт всегда, а не только в режиме "system": слушатель
+     * дешёвый, а условие проверяется в момент события. Так исключён
+     * классический дефект — человек переключился на «как на устройстве»,
+     * а подписки на этот момент нет, потому что эффект не перезапустился. */
     useEffect(() => {
         const query = systemQuery();
         if (!query) return undefined;
 
         const onChange = () => {
-            if (readStoredTheme()) return;
-            const next = applyTheme(query.matches ? THEMES.LIGHT : THEMES.DARK);
-            setThemeState(next);
+            if (preference !== PREFERENCES.SYSTEM) return;
+            setThemeState(applyTheme(query.matches ? THEMES.LIGHT : THEMES.DARK));
         };
 
         /* addListener — устаревший путь для Safari < 14. */
@@ -132,7 +160,7 @@ export const useTheme = () => {
             if (query.removeEventListener) query.removeEventListener("change", onChange);
             else query.removeListener(onChange);
         };
-    }, []);
+    }, [preference]);
 
-    return { theme, setTheme, toggle };
+    return { preference, theme, cycle, setPreference };
 };

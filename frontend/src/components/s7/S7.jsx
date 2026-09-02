@@ -77,8 +77,11 @@ const S7 = () => {
        в списке даже с нулевым счётчиком (см. buildFacets), поэтому человек
        видит строку «Аэрофлот 0» и понимает, почему выдача пуста, — вместо
        того чтобы фильтр молча резал результаты из строки, которой на экране
-       уже нет. Снять отметку он может сам, в один щелчок. */
+       уже нет. Снять отметку он может сам, в один щелчок.
+
+       Ровно то же верно для классов обслуживания. */
     const airlineFacets = facets.airlines;
+    const cabinFacets = facets.cabinClasses;
 
     const activeFilterCount =
         stops.length +
@@ -190,30 +193,42 @@ const S7 = () => {
                         </aside>
                         <aside className="filters-right">
                             <div className="filters-column">
-                                <div className="filter-group">
-                                    <h3 className="filter-title">Класс обслуживания</h3>
-                                    {Object.entries(CABIN_CLASS_LABELS).map(([value, label]) => (
-                                        <label key={value} className="filter-item">
-                                            <input
-                                                type="checkbox"
-                                                value={value}
-                                                checked={selectedClasses.includes(value)}
-                                                onChange={toggleIn(setSelectedClasses)}
-                                            />
-                                            <span className="checkmark"/>{label}
-                                        </label>
-                                    ))}
-                                </div>
+                                {/* Обе группы строятся по фасетам из ответа
+                                    сервера и описывают ТЕКУЩУЮ выдачу.
+                                    Пока поиска не было, групп нет: предлагать
+                                    фильтр, не зная маршрута, — значит обещать
+                                    выбор, который ничего не найдёт.
 
-                                {/* Авиакомпании приходят с ответом сервера
-                                    (facets.airlines) и относятся к текущей
-                                    выдаче. Пока поиска не было, группы нет:
-                                    показывать список компаний, не зная
-                                    маршрута, — значит предлагать фильтр,
-                                    который ничего не найдёт. */}
+                                    Русские подписи классов берутся из
+                                    контракта: сервер присылает значения
+                                    ("economy"), а не текст для показа. */}
+                                {cabinFacets.length > 0 && (
+                                    <div className="filter-group">
+                                        <h3 className="filter-title">Класс обслуживания</h3>
+                                        {cabinFacets.map(({ value, count }) => (
+                                            <label
+                                                key={value}
+                                                className={`filter-item${count === 0 ? " is-empty" : ""}`}
+                                            >
+                                                <input
+                                                    type="checkbox"
+                                                    value={value}
+                                                    checked={selectedClasses.includes(value)}
+                                                    onChange={toggleIn(setSelectedClasses)}
+                                                />
+                                                <span className="checkmark"/>
+                                                <span className="filter-item__text">
+                                                    {CABIN_CLASS_LABELS[value] || value}
+                                                </span>
+                                                <span className="filter-item__count">{count}</span>
+                                            </label>
+                                        ))}
+                                    </div>
+                                )}
+
                                 {airlineFacets.length > 0 && (
                                     <>
-                                        <div className="filter-divider"/>
+                                        {cabinFacets.length > 0 && <div className="filter-divider"/>}
 
                                         <div className="filter-group">
                                             <h3 className="filter-title">Авиакомпании</h3>
