@@ -53,6 +53,25 @@ export function basicAuth(login: string, password: string): string {
 const stamp = () => new Date().toISOString().replace(/[:.]/g, "-");
 
 /**
+ * Причина сбоя fetch целиком, вместе с цепочкой cause.
+ *
+ * Само по себе "fetch failed" не говорит ничего: за ним одинаково прячутся
+ * «нет DNS», «отказ TLS», «соединение закрыто прокси» и «нет маршрута».
+ * Настоящая причина лежит на уровень-два ниже, в error.cause, и без неё
+ * разбор недоступности стенда превращается в перебор гипотез.
+ */
+function describeCause(error: unknown): string {
+  const parts: string[] = [];
+  let current: unknown = error;
+  for (let depth = 0; current instanceof Error && depth < 5; depth++) {
+    parts.push(current.message);
+    current = current.cause;
+  }
+  if (!parts.length) return String(error);
+  return parts.join(" <- ");
+}
+
+/**
  * Дампы — вспомогательный инструмент, а не часть работы сервиса.
  * Поэтому любая ошибка записи (нет прав, нет каталога) не должна ронять
  * запрос: она попадает в лог и на этом всё.
@@ -108,7 +127,7 @@ async function attempt(xml: string, options: TransportOptions): Promise<{ body: 
       });
     }
     throw new ProviderError("PROVIDER_UNAVAILABLE", "Не удалось связаться со шлюзом S7", {
-      internal: error instanceof Error ? error.message : String(error),
+      internal: describeCause(error),
       cause: error,
     });
   }
