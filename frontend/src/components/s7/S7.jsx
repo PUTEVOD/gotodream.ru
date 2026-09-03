@@ -1,5 +1,5 @@
 import React, { useMemo, useState, useEffect } from "react";
-import { useLocation, useNavigate } from "react-router-dom";
+import { useLocation } from "react-router-dom";
 import SiteHeader from "../layout/SiteHeader";
 import DoubleTimeSlider from "../ui/DoubleTimeSlider";
 import SearchForm from "./SearchForm";
@@ -34,13 +34,20 @@ const DEFAULT_RANGES = {
 
 
 const S7 = () => {
-    const navigate = useNavigate();
     // Параметры, приехавшие с главной страницы. undefined, если на /s7
     // зашли напрямую.
     const location = useLocation();
     const handoff = location.state?.search;
 
     const [tripType, setTripType] = useState(handoff?.values?.tripType || "roundTrip");
+
+    /* Выбранное предложение. Маршрута /s7/:id в приложении нет, и раньше
+       кнопка «Выбрать» уводила на несуществующий адрес — пустая страница без
+       единого сообщения. Пока следующий шаг (пересчёт цены и бронирование)
+       не сделан, выбор остаётся на этой же странице: карточка отмечается,
+       под списком появляется строка с тем, что выбрано. Это честно
+       показывает границу готовности вместо тупика. */
+    const [selectedFlight, setSelectedFlight] = useState(null);
 
     const [departureRange, setDepartureRange] = useState(DEFAULT_RANGES.departureRange);
     const [arrivalRange, setArrivalRange] = useState(DEFAULT_RANGES.arrivalRange);
@@ -304,7 +311,20 @@ const S7 = () => {
                             )}
 
                             {status === "success" && flights.length > 0 && (
-                                <FlightList flights={flights} onFlightClick={(flightId) => navigate(`/s7/${flightId}`)}/>
+                                <>
+                                    <FlightList
+                                        flights={flights}
+                                        selectedId={selectedFlight?.id}
+                                        onFlightClick={setSelectedFlight}
+                                    />
+                                    {selectedFlight && (
+                                        <div className="search-state search-state--selected" role="status">
+                                            Выбрано: {selectedFlight.from} → {selectedFlight.to},{" "}
+                                            {selectedFlight.fareBrand || selectedFlight.cabinClass}.
+                                            Бронирование появится на следующем шаге.
+                                        </div>
+                                    )}
+                                </>
                             )}
                         </div>
                 </div>
