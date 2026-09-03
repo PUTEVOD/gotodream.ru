@@ -86,6 +86,28 @@ const SearchForm = ({ onSearch,
     // сразу краснеет и обучает пользователя игнорировать подсветку.
     const errorFor = (key) => (wasSubmitted ? errors[key] : undefined) || mappedServerErrors[key];
 
+    /* Какой из двух календарей простого режима раскрыт: "departure",
+       "return" или ни один. Состояние живёт здесь, а не внутри полей,
+       потому что решение «после вылета спросить возвращение» — это правило
+       формы: одно поле про другое знать не должно.
+
+       Полей сложного маршрута это не касается: они остаются на собственном
+       внутреннем состоянии (см. DateField). */
+    const [openDateField, setOpenDateField] = useState(null);
+
+    /* Открыть — безусловно. Закрыть — только если раскрыт именно этот
+       календарь.
+
+       Оговорка не формальная. Выбор даты в календаре вызывает подряд
+       onSelect и onClose: сначала обработчик вылета решает раскрыть
+       возвращение, следом закрывается сам. Без проверки второй вызов
+       затирал бы решение первого, и календарь возвращения не появлялся бы. */
+    const dateFieldOpener = useMemo(() => {
+        const make = (name) => (next) =>
+            setOpenDateField((prev) => (next ? name : prev === name ? null : prev));
+        return { departure: make("departure"), return: make("return") };
+    }, []);
+
     // Смена типа поездки не должна тащить за собой лишние сегменты и дату возврата.
     useEffect(() => {
         if (tripType !== TRIP_TYPES.COMPLEX) {
@@ -93,6 +115,8 @@ const SearchForm = ({ onSearch,
         }
         if (tripType !== TRIP_TYPES.ROUND_TRIP) {
             setReturnDate("");
+            // Календаря возвращения больше нет на экране — закрываем и его состояние.
+            setOpenDateField((prev) => (prev === "return" ? null : prev));
         }
     }, [tripType]);
 
@@ -101,6 +125,24 @@ const SearchForm = ({ onSearch,
     const updateSegment = useCallback((index, field, value) => {
         setSegments((prev) => prev.map((s, i) => (i === index ? { ...s, [field]: value } : s)));
     }, []);
+
+    /* Выбор даты вылета в режиме «туда-обратно» сразу раскрывает календарь
+       возвращения.
+
+       Это не украшение: одна дата из двух — незаконченный ввод, и следующее
+       действие человека известно заранее. Раскрывать календарь заново вручную
+       он вынужден только потому, что интерфейс делает вид, будто не понимает,
+       что происходит.
+
+       Условие на уже заполненную дату: переспрашиваем, только если её нет
+       или она стала раньше нового вылета, — то есть когда ввод действительно
+       не закончен. Иначе правка вылета на день назад каждый раз открывала бы
+       календарь поверх заполненной формы. */
+    const handleDepartureDateChange = useCallback((value) => {
+        updateSegment(0, "date", value);
+        if (tripType !== TRIP_TYPES.ROUND_TRIP) return;
+        if (!returnDate || returnDate < value) setOpenDateField("return");
+    }, [tripType, returnDate, updateSegment]);
 
     const swapDirection = useCallback((index) => {
         setSegments((prev) =>
@@ -250,11 +292,13 @@ const SearchForm = ({ onSearch,
                             id="date-departure"
                             label={tripType === TRIP_TYPES.ONE_WAY ? "Дата" : "Отправление"}
                             value={segments[0].date}
-                            onChange={(value) => updateSegment(0, "date", value)}
+                            onChange={handleDepartureDateChange}
                             min={minDate}
                             max={maxDate}
                             error={errorFor("segments.0.date")}
                             style={{gridColumn: 1, gridRow: 3}}
+                            open={openDateField === "departure"}
+                            onOpenChange={dateFieldOpener.departure}
                         />
 
                         {tripType === TRIP_TYPES.ROUND_TRIP && (
@@ -267,6 +311,8 @@ const SearchForm = ({ onSearch,
                                 max={maxDate}
                                 error={errorFor("returnDate")}
                                 style={{gridColumn: 3, gridRow: 3}}
+                                open={openDateField === "return"}
+                                onOpenChange={dateFieldOpener.return}
                             />
                         )}
                     </>

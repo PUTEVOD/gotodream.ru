@@ -1,33 +1,80 @@
-import React, { useRef, useState } from "react";
+import React, { useCallback, useRef, useState } from "react";
 import Calendar from "./Calendar";
 import { isFieldSurface } from "./fieldSurface";
+import { useNativeDatePicker } from "./useNativeDatePicker";
 
 /**
- * Поле даты с собственным календарём.
+ * Поле даты.
  *
  * Поле остаётся <input type="date">: ручной ввод, локальный формат и
  * системная проверка min/max работают как прежде.
  *
- * ОТКРЫТИЕ КАЛЕНДАРЯ. Нажатие в ЛЮБОЕ место плашки — по подписи, по
- * значению, по пустому месту рядом — открывает календарь. Раньше он
- * открывался только по иконке в правом углу: цель шириной 36px в поле
- * шириной 350px, и по самому полю человек кликал впустую. Иконка
- * сохраняет роль переключателя (открыть/закрыть), поэтому её нажатие
- * дальше по дереву не идёт.
+ * ДВА РЕЖИМА. На мыши раскрывается собственный календарь под полем. На
+ * сенсорном экране собственного календаря нет вовсе — открывается системный
+ * (см. useNativeDatePicker.js). Признак выбирается один раз и на всё
+ * поведение сразу: и на разметку, и на реакцию по нажатию. Половинчатое
+ * решение — «свой календарь, но поменьше» — как раз и давало мигание.
+ *
+ * ОТКРЫТИЕ. Нажатие в ЛЮБОЕ место плашки — по подписи, по значению, по
+ * пустому месту рядом — открывает календарь. Раньше он открывался только по
+ * иконке в правом углу: цель шириной 36px в поле шириной 350px, и по самому
+ * полю человек кликал впустую. Иконка сохраняет роль переключателя
+ * (открыть/закрыть), поэтому её нажатие дальше по дереву не идёт.
+ *
+ * СОСТОЯНИЕ «ОТКРЫТ». По умолчанию хранится внутри. Если передан проп `open`,
+ * поле становится управляемым, и решение принимает форма — это нужно, чтобы
+ * после выбора даты вылета сам собой раскрылся календарь возвращения
+ * (см. SearchForm). Гибрид, а не только управляемый режим: полям сложного
+ * маршрута такое согласование не нужно, и заставлять форму держать состояние
+ * каждого из шести — лишняя связанность.
  */
-const DateField = ({ id, label, value, onChange, min, max, error, style, children }) => {
+const DateField = ({
+                       id,
+                       label,
+                       value,
+                       onChange,
+                       min,
+                       max,
+                       error,
+                       style,
+                       open,
+                       onOpenChange,
+                       children,
+                   }) => {
     const rootRef = useRef(null);
     const inputRef = useRef(null);
-    const [isCalendarOpen, setCalendarOpen] = useState(false);
+    const [internalOpen, setInternalOpen] = useState(false);
 
-    const prefersNativePicker = () =>
-        typeof window !== "undefined" && window.matchMedia?.("(pointer: coarse)").matches;
+    const isControlled = open !== undefined;
+    const isCalendarOpen = isControlled ? open : internalOpen;
 
-    const openCalendar = () => setCalendarOpen(true);
-    const toggleCalendar = () => setCalendarOpen((open) => !open);
+    const useNative = useNativeDatePicker();
+    /* На сенсорном экране свой календарь не рисуется никогда — даже если
+       форма попросила его открыть. Иначе автооткрытие календаря возвращения
+       вернуло бы ровно то мигание, ради устранения которого всё это и есть. */
+    const showCalendar = isCalendarOpen && !useNative;
+
+    const setOpen = useCallback((next) => {
+        if (!isControlled) setInternalOpen(next);
+        onOpenChange?.(next);
+    }, [isControlled, onOpenChange]);
+
+    /** Системный выбор даты. showPicker есть не везде — тогда достаточно
+        фокуса: на телефонах он и так раскрывает системный календарь. */
+    const openNativePicker = () => {
+        const input = inputRef.current;
+        if (!input) return;
+        input.focus();
+        try {
+            input.showPicker?.();
+        } catch {
+            // Вызов без жеста пользователя или неподдерживаемый тип поля.
+            // Поле уже в фокусе — этого достаточно.
+        }
+    };
 
     const closeCalendar = () => {
-        setCalendarOpen(false);
+        setOpen(false);
         inputRef.current?.focus(); // фокус возвращается в поле, а не улетает в начало страницы
     };
 
@@ -41,13 +88,17 @@ const DateField = ({ id, label, value, onChange, min, max, error, style, childre
     const handleSurfaceMouseDown = (event) => {
         if (!isFieldSurface(event.target)) return;
         event.preventDefault();
+        if (useNative) {
+            openNativePicker();
+            return;
+        }
         inputRef.current?.focus();
-        openCalendar();
+        setOpen(true);
     };
 
     return (
         <div
-            className={`form-group date${isCalendarOpen ? " is-open" : ""}`}
+            className={`form-group date${showCalendar ? " is-open" : ""}`}
             ref={rootRef}
             style={style}
             onMouseDown={handleSurfaceMouseDown}
@@ -66,13 +117,16 @@ const DateField = ({ id, label, value, onChange, min, max, error, style, childre
                 /* Нажатие по самому полю тоже открывает календарь: это самая
                    большая и самая очевидная цель в плашке. Ручной ввод при
                    этом не страдает — календарь раскрывается ПОД полем и
-                   ввод не перехватывает. */
-                onClick={openCalendar}
+                   ввод не перехватывает.
+
+                   На сенсорном экране обработчика нет: системный календарь
+                   браузер открывает сам, и вмешиваться незачем. */
+                onClick={useNative ? undefined : () => setOpen(true)}
                 onKeyDown={(event) => {
                     // Alt+стрелка вниз — привычный способ открыть календарь с клавиатуры.
-                    if (event.key === "ArrowDown" && event.altKey && !prefersNativePicker()) {
+                    if (event.key === "ArrowDown" && event.altKey && !useNative) {
                         event.preventDefault();
-                        setCalendarOpen(true);
+                        setOpen(true);
                     }
                 }}
             />
@@ -87,14 +141,14 @@ const DateField = ({ id, label, value, onChange, min, max, error, style, childre
                 type="button"
                 className="field-icon"
                 tabIndex={-1}
-                aria-haspopup="dialog"
-                aria-expanded={isCalendarOpen}
+                aria-haspopup={useNative ? undefined : "dialog"}
+                aria-expanded={useNative ? undefined : showCalendar}
                 aria-label={`${label}: открыть календарь`}
                 onMouseDown={(event) => event.preventDefault()}
-                onClick={toggleCalendar}
+                onClick={() => (useNative ? openNativePicker() : setOpen(!isCalendarOpen))}
             />
 
-            {isCalendarOpen && (
+            {showCalendar && (
                 <Calendar
                     value={value}
                     min={min}
