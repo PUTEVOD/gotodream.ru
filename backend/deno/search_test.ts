@@ -1,16 +1,7 @@
 import { searchRequestSchema } from "./search/schema.ts";
-import { applyFilters, buildFacets, generateOffers } from "./search/flights.ts";
-
-/** Минимальные проверки без внешних зависимостей. */
-function assertEquals<T>(actual: T, expected: T, message = "") {
-  const a = JSON.stringify(actual);
-  const b = JSON.stringify(expected);
-  if (a !== b) throw new Error(`${message}\nполучено:  ${a}\nожидалось: ${b}`);
-}
-
-function assertExists(value: unknown, message = "значение отсутствует") {
-  if (value === null || value === undefined) throw new Error(message);
-}
+import { applyFilters, buildFacets } from "./search/filters.ts";
+import { generateOffers } from "./search/providers/mock.ts";
+import { assertEquals, assertExists } from "./testing/assert.ts";
 
 /**
  * Тесты контракта поиска. Запуск: deno task test
@@ -90,7 +81,10 @@ Deno.test("выдача детерминирована: одинаковый з�
 });
 
 Deno.test("фильтр по пересадкам не пропускает лишнее", () => {
-  const parsed = searchRequestSchema.parse({ ...validRequest(), filters: { sortType: "cheapest", stops: [0] } });
+  const parsed = searchRequestSchema.parse({
+    ...validRequest(),
+    filters: { sortType: "cheapest", stops: [0] },
+  });
   const offers = applyFilters(generateOffers(parsed), parsed);
   assertEquals(offers.every((o) => o.stops === 0), true);
 });

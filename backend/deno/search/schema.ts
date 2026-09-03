@@ -41,11 +41,20 @@ const segment = z.object({
   path: ["destination"],
 });
 
+// Тексты ошибок задаются явно и по-русски: сообщение zod по умолчанию
+// («Number must be greater than or equal to 1») уходит на страницу как есть —
+// оно показывается под полем формы, а не в логе разработчика.
+const count = (min: number, message: string) =>
+  z.number({ invalid_type_error: "Ожидается число" })
+    .int("Ожидается целое число")
+    .min(min, message)
+    .max(9, "Не больше девяти");
+
 const passengers = z.object({
-  adults: z.number().int().min(1).max(9),
-  teens: z.number().int().min(0).max(9),
-  children: z.number().int().min(0).max(9),
-  infants: z.number().int().min(0).max(9),
+  adults: count(1, "Нужен минимум один взрослый"),
+  teens: count(0, "Отрицательное количество"),
+  children: count(0, "Отрицательное количество"),
+  infants: count(0, "Отрицательное количество"),
 });
 
 const filters = z.object({
@@ -61,7 +70,9 @@ const filters = z.object({
 export const searchRequestSchema = z.object({
   tripType: z.enum(TRIP_TYPES),
   cabinClass: z.enum(CABIN_CLASSES),
-  itinerary: z.array(segment).min(1).max(LIMITS.MAX_SEGMENTS + 1),
+  itinerary: z.array(segment)
+    .min(1, "Нужен хотя бы один перелёт")
+    .max(LIMITS.MAX_SEGMENTS + 1, `Не более ${LIMITS.MAX_SEGMENTS} перелётов в одном маршруте`),
   passengers,
   currency: z.string().length(3).default("RUB"),
   locale: z.string().max(10).default("ru-RU"),
@@ -113,15 +124,27 @@ export const searchRequestSchema = z.object({
     });
 
     if (data.tripType === "oneWay" && data.itinerary.length !== 1) {
-      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["itinerary"], message: "Для перелёта в одну сторону нужен один сегмент" });
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["itinerary"],
+        message: "Для перелёта в одну сторону нужен один сегмент",
+      });
     }
     if (data.tripType === "roundTrip" && data.itinerary.length !== 2) {
-      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["itinerary"], message: "Для перелёта туда-обратно нужны два сегмента" });
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["itinerary"],
+        message: "Для перелёта туда-обратно нужны два сегмента",
+      });
     }
     if (data.tripType === "roundTrip" && data.itinerary.length === 2) {
       const [out, back] = data.itinerary;
       if (out.origin !== back.destination || out.destination !== back.origin) {
-        ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["itinerary", 1], message: "Обратный сегмент не соответствует прямому" });
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["itinerary", 1],
+          message: "Обратный сегмент не соответствует прямому",
+        });
       }
     }
   });

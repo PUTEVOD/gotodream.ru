@@ -1,7 +1,9 @@
 import { z } from "npm:zod@3.23.8";
 import { config } from "./config.ts";
 import { searchRequestSchema } from "./schema.ts";
-import { applyFilters, buildFacets, generateOffers } from "./flights.ts";
+import { applyFilters, buildFacets } from "./filters.ts";
+import { getProvider } from "./providers/registry.ts";
+import { ProviderError } from "./providers/types.ts";
 
 /**
  * Модуль поиска рейсов. Ничего не запускает сам.
@@ -11,7 +13,15 @@ import { applyFilters, buildFacets, generateOffers } from "./flights.ts";
  *   if (response) return response;      // запрос обработан здесь
  *   ...ваша остальная маршрутизация
  *
- * Готовый сервер, поднимающий только этот модуль, — ../search_server.ts
+ * Порядок обработки POST /api/search:
+ *   1. проверка формата и размера тела;
+ *   2. проверка параметров схемой (schema.ts) — контракт с фронтом;
+ *   3. запрос к поставщику (providers/registry.ts) — генератор или S7;
+ *   4. фильтры, сортировка и фасеты поверх полученного набора (filters.ts).
+ *
+ * Шаг 3 отделён от шага 4 сознательно: поставщика спрашивают про маршрут,
+ * фильтры применяются локально. Из-за этого смена фильтров на странице
+ * обслуживается из кэша и не порождает обращений к внешнему шлюзу.
  */
 
 interface ErrorDetail {
@@ -73,15 +83,23 @@ async function handleSearch(request: Request, origin: string | null): Promise<Re
 
   const result = searchRequestSchema.safeParse(parsedJson);
   if (!result.success) {
-    return fail(422, "VALIDATION_ERROR", "Параметры поиска не прошли проверку", origin, toDetails(result.error));
+    return fail(
+      422,
+      "VALIDATION_ERROR",
+      "Параметры поиска не прошли проверку",
+      origin,
+      toDetails(result.error),
+    );
   }
 
   const searchRequest = result.data;
+  const started = performance.now();
+
   // Полный набор нужен дважды: из него получается выдача и из него же
   // считаются фасеты — значения, которые имеет смысл предлагать в фильтрах.
-  const generated = generateOffers(searchRequest);
-  const offers = applyFilters(generated, searchRequest);
-  const facets = buildFacets(generated, searchRequest);
+  const provided = await getProvider().search(searchRequest, { signal: request.signal });
+  const offers = applyFilters(provided.offers, searchRequest);
+  const facets = buildFacets(provided.offers, searchRequest);
 
   return json(
     {
@@ -90,9 +108,14 @@ async function handleSearch(request: Request, origin: string | null): Promise<Re
       facets,
       meta: {
         total: offers.length,
+        /** Сколько предложений пришло от поставщика до применения фильтров. */
+        totalBeforeFilters: provided.offers.length,
         currency: searchRequest.currency,
         tripType: searchRequest.tripType,
         cabinClass: searchRequest.cabinClass,
+        source: provided.source,
+        warnings: provided.warnings,
+        elapsedMs: Math.round(performance.now() - started),
         generatedAt: new Date().toISOString(),
       },
     },
@@ -114,7 +137,7 @@ export async function searchRoutes(request: Request): Promise<Response | null> {
   }
 
   if (url.pathname === "/api/health" && request.method === "GET") {
-    return json({ status: "ok", time: new Date().toISOString() }, 200, origin);
+    return json({ status: "ok", provider: config.provider, time: new Date().toISOString() }, 200, origin);
   }
 
   if (url.pathname === "/api/search") {
@@ -124,6 +147,16 @@ export async function searchRoutes(request: Request): Promise<Response | null> {
     try {
       return await handleSearch(request, origin);
     } catch (error) {
+      // Отказ поставщика — не «внутренняя ошибка сервера»: у него свой код и
+      // свой статус, и фронт по ним различает «повторите» и «так не получится».
+      if (error instanceof ProviderError) {
+        console.error(`провайдер ${config.provider}: ${error.code} — ${error.internal ?? error.message}`);
+        return fail(error.status, error.code, error.message, origin, error.details);
+      }
+      // Клиент закрыл вкладку — отвечать некому, но и в лог как сбой не пишем.
+      if (error instanceof DOMException && error.name === "AbortError") {
+        return new Response(null, { status: 499, headers: corsHeaders(origin) });
+      }
       // Внутренние детали наружу не отдаём — только в лог.
       console.error("search failed:", error);
       return fail(500, "INTERNAL_ERROR", "Внутренняя ошибка сервера", origin);

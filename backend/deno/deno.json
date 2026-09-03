@@ -1,17 +1,23 @@
 {
   "tasks": {
-    "dev": "deno run --allow-net --allow-env --watch main.ts",
-    "start": "deno run --allow-net --allow-env main.ts",
-    "test": "deno test --allow-net --allow-env",
-    "check": "deno check main.ts && deno lint && deno fmt --check"
+    "dev": "deno run --allow-net --allow-env --allow-read --allow-write --env-file=.env --watch main.ts",
+    "start": "deno run --allow-net --allow-env --allow-read --allow-write main.ts",
+    "test": "deno test --allow-net --allow-env --allow-read",
+    "check": "deno check main.ts tools/s7_ping.ts && deno lint && deno fmt --check",
+    "s7:ping": "deno run --allow-net --allow-env --allow-read --allow-write --env-file=.env tools/s7_ping.ts"
   },
   "fmt": {
     "indentWidth": 2,
-    "lineWidth": 110
+    "lineWidth": 110,
+    "exclude": ["search/providers/s7/fixtures", "dumps"]
   },
   "lint": {
     "rules": {
       "tags": ["recommended"]
     }
+  },
+  "imports": {
+    "zod": "npm:zod@3.23.8",
+    "fast-xml-parser": "npm:fast-xml-parser@4.5.0"
   }
 }
