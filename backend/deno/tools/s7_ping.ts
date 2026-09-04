@@ -1,6 +1,7 @@
 import { searchRequestSchema } from "../search/schema.ts";
 import { config } from "../search/config.ts";
 import { buildAirShoppingRQ } from "../search/providers/s7/request.ts";
+import { buildItinReshopRQ } from "../search/providers/s7/reprice.ts";
 import { s7Provider } from "../search/providers/s7/provider.ts";
 import { ProviderError } from "../search/providers/types.ts";
 import type { Offer } from "../search/offer.ts";
@@ -18,6 +19,7 @@ import type { Offer } from "../search/offer.ts";
  *   deno task s7:ping
  *   deno task s7:ping -- --from LED --to AER --date 2026-03-15 --adults 2
  *   deno task s7:ping -- --from DME --to LED --date 2026-03-10 --return 2026-03-20
+ *   deno task s7:ping -- --reprice 1
  *   deno task s7:ping -- --show-request --raw
  *   deno task s7:ping -- --fixture search/providers/s7/fixtures/airshopping-rs-ow-adt.xml
  */
@@ -37,6 +39,7 @@ const HELP = `
   --currency CODE    валюта (RUB)
   --limit N          сколько предложений печатать (10)
 
+  --reprice N        подтвердить цену предложения №N из списка (ItinReshopRQ)
   --show-request     напечатать отправляемый XML
   --json             напечатать разобранные предложения как JSON
   --fixture PATH     не ходить в сеть, разобрать готовый ответ из файла
@@ -232,6 +235,62 @@ try {
           })`
           : ""),
     );
+  }
+
+  /* Второй шаг сценария — подтверждение цены. Он здесь, а не в отдельном
+     инструменте, потому что пересчёту нужно предложение из выдачи целиком:
+     ключи сегментов и базисы тарифов. Запускать поиск заново ради этого
+     значит проверять два разных ответа стенда вместо одного. */
+  const repriceIndex = int("reprice", 0);
+  if (repriceIndex > 0) {
+    const offer = sorted[repriceIndex - 1];
+    if (!offer) {
+      console.error(`\nВ выдаче нет предложения №${repriceIndex}: всего ${sorted.length}`);
+      Deno.exit(2);
+    }
+
+    console.log(`\nПересчёт цены предложения №${repriceIndex} (${offer.id})`);
+
+    if (args["show-request"]) {
+      const { xml } = buildItinReshopRQ(offer, request, {
+        credentials: {
+          pseudoCity: config.s7.pseudoCity,
+          agentUserID: config.s7.agentUserID,
+          senderName: config.s7.senderName,
+          userRole: config.s7.userRole,
+          posType: config.s7.posType,
+          requestorType: config.s7.requestorType,
+        },
+      });
+      console.log(xml.replace(/></g, ">\n<"));
+      console.log();
+    }
+
+    const repriceStarted = performance.now();
+    const { reprice, warnings } = await s7Provider.reprice!({ search: request, offer });
+    console.log(`  ответ за ${Math.round(performance.now() - repriceStarted)} мс`);
+    for (const warning of warnings) console.log(`  предупреждение: ${warning}`);
+
+    const sign = reprice.difference > 0 ? "+" : "";
+    console.log(
+      `  было ${money(reprice.previousPrice, reprice.currency)}` +
+        `  стало ${money(reprice.price, reprice.currency)}` +
+        (reprice.difference === 0
+          ? "  (цена не изменилась)"
+          : `  (${sign}${money(reprice.difference, reprice.currency)})`),
+    );
+    console.log(
+      `  тариф ${money(reprice.breakdown.base, reprice.currency)} + сборы ${
+        money(reprice.breakdown.taxes, reprice.currency)
+      }` + (reprice.breakdown.fees ? ` + платы ${money(reprice.breakdown.fees, reprice.currency)}` : ""),
+    );
+    for (const passenger of reprice.passengers) {
+      console.log(
+        `    ${passenger.objectKey.padEnd(6)} ${passenger.ptc.padEnd(4)} ${
+          money(passenger.price, reprice.currency).padStart(14)
+        }`,
+      );
+    }
   }
 } catch (error) {
   if (error instanceof ProviderError) {

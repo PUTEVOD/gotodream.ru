@@ -1,0 +1,134 @@
+/* frontend/src/components/styles/PriceConfirmation.css
+
+   Панель подтверждённой цены под списком выдачи.
+
+   Цвета — из tokens.css: панель живёт на той же странице, что и карточки,
+   и должна следовать за темой вместе с ними. */
+
+.price-confirmation {
+    margin: 20px 0 40px;
+    padding: 20px;
+    background: var(--gtd-surface);
+    border: 1px solid var(--gtd-line);
+    border-radius: 12px;
+    color: var(--gtd-text-1);
+}
+
+/* Изменившаяся цена обведена: это единственное сообщение на странице,
+   которое человек обязан заметить до того, как пойдёт дальше. */
+.price-confirmation--changed {
+    border-color: var(--gtd-accent);
+}
+
+.price-confirmation--error {
+    border-color: var(--gtd-danger);
+}
+
+.price-confirmation__state {
+    margin: 0;
+    color: var(--gtd-text-2);
+    font-size: 15px;
+}
+
+.price-confirmation__action {
+    margin-top: 12px;
+    padding: 9px 20px;
+    background: var(--gtd-accent);
+    color: var(--gtd-on-accent);
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    font: inherit;
+}
+
+.price-confirmation__action:focus-visible {
+    outline: 2px solid var(--gtd-focus-ring);
+    outline-offset: 3px;
+}
+
+.price-confirmation__head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 16px;
+}
+
+.price-confirmation__title {
+    margin: 0;
+    font-size: 17px;
+    font-weight: 600;
+}
+
+.price-confirmation__route {
+    margin: 4px 0 0;
+    color: var(--gtd-text-2);
+    font-size: 14px;
+}
+
+.price-confirmation__amount {
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+    font-variant-numeric: tabular-nums;
+}
+
+/* Прежняя цена перечёркнута и приглушена: она нужна для сравнения и не
+   должна конкурировать с той, которую человек заплатит. */
+.price-confirmation__was {
+    color: var(--gtd-muted);
+    text-decoration: line-through;
+    font-size: 15px;
+}
+
+.price-confirmation__now {
+    font-size: 24px;
+    font-weight: 700;
+}
+
+.price-confirmation__delta {
+    font-size: 14px;
+    padding: 2px 8px;
+    border-radius: 999px;
+    border: 1px solid currentColor;
+}
+
+.price-confirmation__delta.is-up {
+    color: var(--gtd-danger);
+}
+
+.price-confirmation__delta.is-down {
+    color: var(--gtd-text-2);
+}
+
+.price-confirmation__passengers {
+    list-style: none;
+    margin: 16px 0 0;
+    padding: 12px 0 0;
+    border-top: 1px solid var(--gtd-hairline);
+    display: grid;
+    gap: 6px;
+    max-width: 320px;
+    font-size: 14px;
+}
+
+.price-confirmation__passengers li {
+    display: flex;
+    justify-content: space-between;
+    gap: 16px;
+    color: var(--gtd-text-2);
+    font-variant-numeric: tabular-nums;
+}
+
+.price-confirmation__breakdown {
+    margin: 12px 0 0;
+    color: var(--gtd-text-2);
+    font-size: 13px;
+    font-variant-numeric: tabular-nums;
+}
+
+.price-confirmation__next {
+    margin: 12px 0 0;
+    color: var(--gtd-muted);
+    font-size: 13px;
+}

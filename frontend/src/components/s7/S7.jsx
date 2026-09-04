@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useEffect } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useLocation } from "react-router-dom";
 import SiteHeader from "../layout/SiteHeader";
 import DoubleTimeSlider from "../ui/DoubleTimeSlider";
@@ -6,6 +6,8 @@ import SearchForm from "./SearchForm";
 import FlightList from "./FlightList";
 import FiltersPanel from "./FiltersPanel";
 import { useFlightSearch } from "../search/useFlightSearch";
+import { useReprice } from "../search/useReprice";
+import PriceConfirmation from "./PriceConfirmation";
 import { CABIN_CLASS_LABELS, SORT_LABELS, STOPS_OPTIONS, TRIP_TYPE_LABELS } from "../search/contract";
 import "../../theme/tokens.css";        // переменные — первыми
 import "../styles/S7.css";
@@ -41,12 +43,9 @@ const S7 = () => {
 
     const [tripType, setTripType] = useState(handoff?.values?.tripType || "roundTrip");
 
-    /* Выбранное предложение. Маршрута /s7/:id в приложении нет, и раньше
-       кнопка «Выбрать» уводила на несуществующий адрес — пустая страница без
-       единого сообщения. Пока следующий шаг (пересчёт цены и бронирование)
-       не сделан, выбор остаётся на этой же странице: карточка отмечается,
-       под списком появляется строка с тем, что выбрано. Это честно
-       показывает границу готовности вместо тупика. */
+    /* Выбранное предложение. Маршрута /s7/:id в приложении нет, поэтому выбор
+       остаётся на этой же странице: карточка отмечается, а под списком
+       появляется подтверждённая цена. */
     const [selectedFlight, setSelectedFlight] = useState(null);
 
     const [departureRange, setDepartureRange] = useState(DEFAULT_RANGES.departureRange);
@@ -66,7 +65,28 @@ const S7 = () => {
         [departureRange, arrivalRange, durationRange, stops, sortType, selectedClasses, selectedAirlines, touched],
     );
 
-    const { status, flights, facets, error, fieldErrors, hasSearched, search, retry } = useFlightSearch(filters);
+    const { status, flights, facets, searchId, error, fieldErrors, hasSearched, search, retry } =
+        useFlightSearch(filters);
+
+    /* Подтверждение цены выбранного предложения. Отдельный запрос к
+       перевозчику: цена в выдаче — не обязательство, и разницу надо показать
+       до ввода данных пассажиров, а не после списания. */
+    const reprice = useReprice();
+
+    const selectFlight = useCallback((flight) => {
+        setSelectedFlight(flight);
+        reprice.confirm(searchId, flight);
+    }, [reprice, searchId]);
+
+    /* Новый ответ сервера — новая выдача и новые цены. Подтверждение,
+       полученное для прошлой, к ней уже не относится: показывать его дальше
+       значит показывать цену несуществующего предложения. Ключ — searchId,
+       он меняется с каждым ответом, включая перезапрос по фильтрам. */
+    useEffect(() => {
+        setSelectedFlight(null);
+        reprice.reset();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [searchId]);
     // Запрос с главной отправляется один раз при открытии страницы.
     // Пустой список зависимостей здесь не небрежность, а требование:
     // search пересоздаётся при смене фильтров, и с ним в зависимостях
@@ -315,15 +335,17 @@ const S7 = () => {
                                     <FlightList
                                         flights={flights}
                                         selectedId={selectedFlight?.id}
-                                        onFlightClick={setSelectedFlight}
+                                        onFlightClick={selectFlight}
                                     />
-                                    {selectedFlight && (
-                                        <div className="search-state search-state--selected" role="status">
-                                            Выбрано: {selectedFlight.from} → {selectedFlight.to},{" "}
-                                            {selectedFlight.fareBrand || selectedFlight.cabinClass}.
-                                            Бронирование появится на следующем шаге.
-                                        </div>
-                                    )}
+                                    <PriceConfirmation
+                                        status={reprice.status}
+                                        reprice={reprice.reprice}
+                                        error={reprice.error}
+                                        isExpired={reprice.isExpired}
+                                        flight={selectedFlight}
+                                        onRetry={() => selectFlight(selectedFlight)}
+                                        onNewSearch={retry}
+                                    />
                                 </>
                             )}
                         </div>

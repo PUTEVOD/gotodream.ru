@@ -57,6 +57,19 @@ export const config = {
     maxEntries: num("SEARCH_CACHE_MAX_ENTRIES", 200),
   },
 
+  /**
+   * Хранилище выдачи по searchId. Из него пересчёт цены берёт подробности
+   * выбранного предложения, вместо того чтобы принимать их из браузера.
+   *
+   * Время жизни заметно больше, чем у кэша выдачи: кэш экономит обращения к
+   * шлюзу и может протухать часто, а здесь счёт идёт на то, сколько человек
+   * выбирает рейс из списка. Пятиминутного окна для этого мало.
+   */
+  results: {
+    ttlMs: num("SEARCH_RESULTS_TTL_MS", 20 * 60_000),
+    maxEntries: num("SEARCH_RESULTS_MAX_ENTRIES", 500),
+  },
+
   /** Настройки шлюза S7 NDC (agent-api/gaia). Используются только провайдером s7. */
   s7: {
     endpoint: env("S7_ENDPOINT") ?? "https://qa-gaia.s7.ru/agent-api/gaia",
@@ -75,6 +88,9 @@ export const config = {
 
     /** Операция поиска. searchFlightsJourney отдаёт готовые варианты перелёта целиком. */
     operation: env("S7_OPERATION") ?? "searchFlightsJourney",
+
+    /** Операция пересчёта цены: ItinReshopRQ -> ItinReshopRS. */
+    repriceOperation: env("S7_REPRICE_OPERATION") ?? "reprice",
     soapActionBase: env("S7_SOAP_ACTION_BASE") ?? "http://api.s7.ru",
 
     /**
@@ -110,5 +126,8 @@ export const config = {
      * и для отладки парсера без доступа к стенду.
      */
     fixture: env("S7_FIXTURE") ?? "",
+
+    /** То же для пересчёта цены: сохранённый ItinReshopRS вместо обращения к стенду. */
+    repriceFixture: env("S7_REPRICE_FIXTURE") ?? "",
   },
 };

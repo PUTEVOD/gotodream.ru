@@ -5,6 +5,8 @@ import { mapCabinClass, parseAirShoppingRS } from "./parse.ts";
 import { isoDurationToMinutes } from "./xml.ts";
 import { basicAuth } from "./transport.ts";
 import { ProviderError } from "../types.ts";
+import { buildItinReshopRQ } from "./reprice.ts";
+import { parseItinReshopRS } from "./parseReprice.ts";
 
 /**
  * Тесты слоя S7 на сохранённых ответах стенда.
@@ -236,4 +238,103 @@ Deno.test("блок Errors внутри успешного ответа — эт
 Deno.test("мусор вместо XML не роняет процесс", () => {
   const error = assertThrows(() => parseAirShoppingRS("<<<не xml"), ProviderError) as ProviderError;
   assertEquals(error.code, "PROVIDER_BAD_RESPONSE");
+});
+
+// ------------------------------------------------- пересчёт цены ---
+
+const offerFrom = (name: string, index = 0) => parseAirShoppingRS(fixture(name)).offers[index];
+
+Deno.test("в предложении есть тариф и класс бронирования по каждому рейсу", () => {
+  const offer = offerFrom("airshopping-rs-ow-adt.xml");
+  const segments = offer.legs.flatMap((leg) => leg.segments ?? []);
+
+  assertEquals(segments.length, 2); // DME -> OVB -> IKT
+  assertEquals(segments.map((s) => s.key), ["SEG1", "SEG2"]);
+  for (const segment of segments) {
+    assertEquals(segment.bookingClass, "Q");
+    assertEquals(segment.fareBasis, "QBSOVB");
+    assert(segment.marketingFlightNumber, "номер рейса нужен отдельно от кода компании");
+  }
+});
+
+Deno.test("конверт пересчёта перечисляет рейсы и связывает с ними тарифы", () => {
+  const offer = offerFrom("airshopping-rs-rt-adt-chd-inf.xml");
+  const request = searchRequest({
+    tripType: "roundTrip",
+    itinerary: [
+      { origin: "DME", destination: "LED", departureDate: DEPARTURE },
+      { origin: "LED", destination: "DME", departureDate: RETURN },
+    ],
+    passengers: { adults: 1, teens: 0, children: 1, infants: 1 },
+  });
+
+  const { xml, passengers } = buildItinReshopRQ(offer, request, { credentials });
+
+  assert(xml.includes('<ItinReshopRQ Version="" xmlns="http://www.iata.org/IATA/EDIST">'));
+  assert(xml.includes("<PseudoCity>S7AGN8224</PseudoCity>"));
+
+  // Два направления — два OriginDestination, каждый со своим рейсом.
+  assertEquals(xml.match(/<OriginDestination>/g)?.length, 2);
+  assert(xml.includes("<SegmentKey>SEG1</SegmentKey>"));
+  assert(xml.includes("<SegmentKey>SEG2</SegmentKey>"));
+  assert(xml.includes("<FlightNumber>1003</FlightNumber>"));
+
+  // Тариф привязан к сегменту через refs — иначе шлюз не поймёт, что к чему.
+  assert(xml.includes('<FareComponent refs="SEG1">'));
+  assert(xml.includes("<Code>SBSRT</Code>"));
+  assert(xml.includes("<RBD>S</RBD>"));
+
+  // Пассажиры перечисляются поимённо, а не количеством: OrderItem ссылается
+  // на конкретные ключи.
+  assertEquals(passengers.map((p) => p.ptc), ["ADT", "CHD", "INF"]);
+  assertEquals(passengers.map((p) => p.objectKey), ["SH1", "SH2", "SH3i"]);
+  assert(xml.includes("<PassengerReferences>SH1 SH2 SH3i</PassengerReferences>"));
+});
+
+Deno.test("подтверждённая цена разбирается вместе с раскладкой по пассажирам", () => {
+  const { reprice, warnings } = parseItinReshopRS(fixture("itinreshop-rs-rt-adt-chd-inf.xml"), {
+    offerId: "s7-OF1",
+    previousPrice: 15678,
+  });
+
+  assertEquals(warnings, []);
+  assertEquals(reprice.price, 15478);
+  assertEquals(reprice.currency, "RUB");
+  assertEquals(reprice.breakdown.base, 13440);
+  assertEquals(reprice.breakdown.taxes, 2038);
+
+  // Смысл шага: цена отличается от той, что была в выдаче.
+  assertEquals(reprice.previousPrice, 15678);
+  assertEquals(reprice.difference, -200);
+
+  assertEquals(reprice.passengers.length, 3);
+  assertEquals(reprice.passengers.map((p) => p.ptc).sort(), ["ADT", "CHD", "INF"]);
+  // Младенец без места летит бесплатно — это норма, а не сбой разбора.
+  assertEquals(reprice.passengers.find((p) => p.ptc === "INF")?.price, 0);
+  // Суммы по пассажирам обязаны сходиться с итогом: из них складывается счёт.
+  assertAlmostEquals(reprice.passengers.reduce((sum, p) => sum + p.price, 0), reprice.price, 0.01);
+});
+
+Deno.test("«цена не изменилась» — это тоже результат, а не отсутствие ответа", () => {
+  const { reprice } = parseItinReshopRS(fixture("itinreshop-rs-ow-adt.xml"), {
+    offerId: "s7-OF1",
+    previousPrice: 83791,
+  });
+
+  assertEquals(reprice.price, 83791);
+  assertEquals(reprice.difference, 0);
+  assertEquals(reprice.passengers.length, 1);
+});
+
+Deno.test("отказ шлюза при пересчёте не превращается в цену", () => {
+  const xml = `<Envelope xmlns="http://schemas.xmlsoap.org/soap/envelope/"><Body>` +
+    `<ItinReshopRS xmlns="http://www.iata.org/IATA/EDIST"><Errors>` +
+    `<Error Code="ERR-500">Offer expired</Error>` +
+    `</Errors></ItinReshopRS></Body></Envelope>`;
+
+  const error = assertThrows(
+    () => parseItinReshopRS(xml, { offerId: "s7-OF1", previousPrice: 100 }),
+    ProviderError,
+  ) as ProviderError;
+  assertEquals(error.code, "PROVIDER_REJECTED");
 });

@@ -1,6 +1,13 @@
 import { CABIN_CLASSES, type SearchRequest } from "../schema.ts";
-import { type CabinClass, formatDuration, type Leg, minutesToTime, type Offer } from "../offer.ts";
-import type { FlightProvider, ProviderResult } from "./types.ts";
+import {
+  type CabinClass,
+  formatDuration,
+  type Leg,
+  minutesToTime,
+  type Offer,
+  type RepricedPassenger,
+} from "../offer.ts";
+import type { FlightProvider, ProviderResult, RepriceInput, RepriceResult } from "./types.ts";
 
 /**
  * Провайдер «mock»: генератор тестовой выдачи.
@@ -175,6 +182,78 @@ export function generateOffers(request: SearchRequest): Offer[] {
   return offers;
 }
 
+/**
+ * Пересчёт цены у генератора.
+ *
+ * Смысл шага в том, что цена МОЖЕТ отличаться от той, что была в выдаче.
+ * Поэтому генератор её и меняет: примерно у трети предложений сумма уходит
+ * на несколько процентов вверх или вниз. Возвращать ровно ту же цену было бы
+ * удобнее для разработки и бесполезно для дела — интерфейс, который никогда
+ * не видел изменившейся цены, не готов её показать.
+ *
+ * Изменение детерминировано идентификатором предложения: один и тот же рейс
+ * пересчитывается одинаково, и поведение страницы воспроизводится.
+ */
+export function repriceOffer(input: RepriceInput): RepriceResult {
+  const { offer, search } = input;
+  const random = mulberry32(hash(`reprice:${offer.id}`));
+
+  const roll = random();
+  const factor = roll < 0.66 ? 1 : 1 + (random() - 0.5) * 0.12;
+  const price = Math.round(offer.price * factor / 10) * 10;
+
+  // Сборы считаем долей от итога: у генератора нет тарифных правил, а
+  // показывать «тариф 0 + сборы всё» было бы просто неверно.
+  const taxes = Math.round(price * 0.12);
+  const base = price - taxes;
+
+  /* Раскладка по пассажирам. Вес взят из того, как это устроено у
+     перевозчика: ребёнок дешевле взрослого, младенец без места почти
+     ничего не стоит. Точные коэффициенты здесь не важны — важно, что сумма
+     по пассажирам сходится с итогом, потому что именно это проверяет
+     интерфейс. */
+  const weights: Array<{ ptc: string; weight: number }> = [
+    ...Array.from({ length: search.passengers.adults }, () => ({ ptc: "ADT", weight: 1 })),
+    ...Array.from({ length: search.passengers.teens }, () => ({ ptc: "ADT", weight: 1 })),
+    ...Array.from({ length: search.passengers.children }, () => ({ ptc: "CHD", weight: 0.5 })),
+    ...Array.from({ length: search.passengers.infants }, () => ({ ptc: "INF", weight: 0.05 })),
+  ];
+  const totalWeight = weights.reduce((sum, w) => sum + w.weight, 0) || 1;
+
+  const passengers: RepricedPassenger[] = [];
+  let distributed = 0;
+  weights.forEach((entry, index) => {
+    // Последнему достаётся остаток: иначе округление каждой доли по
+    // отдельности разошлось бы с итогом на несколько рублей.
+    const share = index === weights.length - 1
+      ? price - distributed
+      : Math.round(price * entry.weight / totalWeight);
+    distributed += share;
+    const passengerTaxes = Math.round(share * 0.12);
+    passengers.push({
+      objectKey: `P${index + 1}`,
+      ptc: entry.ptc,
+      price: share,
+      base: share - passengerTaxes,
+      taxes: passengerTaxes,
+    });
+  });
+
+  return {
+    reprice: {
+      offerId: offer.id,
+      price,
+      currency: offer.currency,
+      breakdown: { base, taxes },
+      passengers,
+      previousPrice: offer.price,
+      difference: price - offer.price,
+    },
+    source: "mock",
+    warnings: [],
+  };
+}
+
 export const mockProvider: FlightProvider = {
   name: "mock",
   // deno-lint-ignore require-await
@@ -183,4 +262,6 @@ export const mockProvider: FlightProvider = {
     source: "mock",
     warnings: [],
   }),
+  // deno-lint-ignore require-await
+  reprice: async (input: RepriceInput): Promise<RepriceResult> => repriceOffer(input),
 };

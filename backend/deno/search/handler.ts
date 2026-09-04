@@ -1,9 +1,10 @@
 import { z } from "npm:zod@3.23.8";
 import { config } from "./config.ts";
-import { searchRequestSchema } from "./schema.ts";
+import { repriceRequestSchema, searchRequestSchema } from "./schema.ts";
 import { applyFilters, buildFacets } from "./filters.ts";
 import { getProvider } from "./providers/registry.ts";
 import { ProviderError } from "./providers/types.ts";
+import { ResultsStore } from "./results.ts";
 
 /**
  * Модуль поиска рейсов. Ничего не запускает сам.
@@ -28,6 +29,12 @@ interface ErrorDetail {
   path: string;
   message: string;
 }
+
+/**
+ * Выдача последних поисков. Из неё пересчёт цены берёт выбранное
+ * предложение — см. results.ts о том, почему не из тела запроса.
+ */
+const results = new ResultsStore(config.results);
 
 /**
  * CORS — правило браузера: страница с адреса A может обращаться к серверу B
@@ -101,9 +108,16 @@ async function handleSearch(request: Request, origin: string | null): Promise<Re
   const offers = applyFilters(provided.offers, searchRequest);
   const facets = buildFacets(provided.offers, searchRequest);
 
+  /* Сохраняем ПОЛНЫЙ набор, а не отфильтрованный: фильтры на странице
+     меняются без нового поиска, и предложение, отсечённое текущим фильтром,
+     всё ещё может быть выбрано — например, если человек снял отметку уже
+     после того, как ответ пришёл. */
+  const searchId = crypto.randomUUID();
+  results.save(searchId, searchRequest, provided.offers);
+
   return json(
     {
-      searchId: crypto.randomUUID(),
+      searchId,
       flights: offers,
       facets,
       meta: {
@@ -124,8 +138,76 @@ async function handleSearch(request: Request, origin: string | null): Promise<Re
   );
 }
 
+async function handleReprice(request: Request, origin: string | null): Promise<Response> {
+  const contentType = request.headers.get("content-type") ?? "";
+  if (!contentType.includes("application/json")) {
+    return fail(415, "UNSUPPORTED_MEDIA_TYPE", "Ожидается Content-Type: application/json", origin);
+  }
+
+  const raw = await request.text();
+  if (raw.length > config.maxBodyBytes) {
+    return fail(413, "PAYLOAD_TOO_LARGE", "Слишком большое тело запроса", origin);
+  }
+
+  let parsedJson: unknown;
+  try {
+    parsedJson = JSON.parse(raw);
+  } catch {
+    return fail(400, "MALFORMED_JSON", "Тело запроса не является корректным JSON", origin);
+  }
+
+  const parsed = repriceRequestSchema.safeParse(parsedJson);
+  if (!parsed.success) {
+    return fail(422, "VALIDATION_ERROR", "Некорректный запрос пересчёта", origin, toDetails(parsed.error));
+  }
+
+  const provider = getProvider();
+  if (!provider.reprice) {
+    return fail(
+      501,
+      "PROVIDER_UNSUPPORTED",
+      `Источник «${provider.name}» не умеет подтверждать цену`,
+      origin,
+    );
+  }
+
+  const found = results.find(parsed.data.searchId, parsed.data.offerId);
+  if (!found) {
+    /* Отдельный код, а не 404: страница должна не «показать ошибку», а
+       предложить повторить поиск. Причина у этого состояния всегда одна и
+       та же — с момента выдачи прошло больше SEARCH_RESULTS_TTL_MS либо
+       сервер перезапускался. */
+    return fail(
+      410,
+      "SEARCH_EXPIRED",
+      "Результаты поиска устарели. Повторите поиск, чтобы подтвердить цену",
+      origin,
+    );
+  }
+
+  const started = performance.now();
+  const result = await provider.reprice(
+    { search: found.request, offer: found.offer },
+    { signal: request.signal },
+  );
+
+  return json(
+    {
+      reprice: result.reprice,
+      meta: {
+        source: result.source,
+        warnings: result.warnings,
+        elapsedMs: Math.round(performance.now() - started),
+        generatedAt: new Date().toISOString(),
+      },
+    },
+    200,
+    origin,
+  );
+}
+
 /**
- * Обрабатывает /api/health, /api/search и OPTIONS-предзапросы.
+ * Обрабатывает /api/health, /api/search, /api/reprice и OPTIONS-предзапросы.
  * Возвращает null, если запрос к этому модулю не относится.
  */
 export async function searchRoutes(request: Request): Promise<Response | null> {
@@ -140,12 +222,14 @@ export async function searchRoutes(request: Request): Promise<Response | null> {
     return json({ status: "ok", provider: config.provider, time: new Date().toISOString() }, 200, origin);
   }
 
-  if (url.pathname === "/api/search") {
+  if (url.pathname === "/api/search" || url.pathname === "/api/reprice") {
     if (request.method !== "POST") {
       return fail(405, "METHOD_NOT_ALLOWED", "Используйте POST", origin);
     }
     try {
-      return await handleSearch(request, origin);
+      return url.pathname === "/api/search"
+        ? await handleSearch(request, origin)
+        : await handleReprice(request, origin);
     } catch (error) {
       // Отказ поставщика — не «внутренняя ошибка сервера»: у него свой код и
       // свой статус, и фронт по ним различает «повторите» и «так не получится».

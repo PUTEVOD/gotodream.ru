@@ -150,3 +150,18 @@ export const searchRequestSchema = z.object({
   });
 
 export type SearchRequest = z.infer<typeof searchRequestSchema>;
+
+/**
+ * Схема запроса POST /api/reprice.
+ *
+ * Наружу отдаются и принимаются только идентификаторы: подробности
+ * предложения сервер берёт из собственного хранилища выдачи (results.ts),
+ * а не из тела запроса. Клиент не должен иметь возможности назначить
+ * маршрут и тариф, по которым уйдёт запрос к шлюзу.
+ */
+export const repriceRequestSchema = z.object({
+  searchId: z.string().min(1, "Не указан идентификатор поиска").max(64),
+  offerId: z.string().min(1, "Не указано предложение").max(200),
+});
+
+export type RepriceRequest = z.infer<typeof repriceRequestSchema>;

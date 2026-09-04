@@ -94,6 +94,23 @@ export function searchFlights(payload, { signal } = {}) {
     return request("/api/search", { method: "POST", body: payload, signal });
 }
 
+/**
+ * POST /api/reprice — подтверждение цены выбранного предложения.
+ *
+ * Наружу уходят только два идентификатора. Подробности предложения (рейсы,
+ * ключи сегментов, тарифы) сервер берёт из собственного хранилища выдачи:
+ * если бы их присылал браузер, маршрут и тариф в запросе к перевозчику
+ * задавал бы клиент.
+ *
+ * @param {{searchId: string, offerId: string}} body
+ * @returns {Promise<{reprice: object, meta: object}>}
+ */
+export function repriceOffer(body, { signal } = {}) {
+    // Пересчёт идёт к внешнему шлюзу и бывает дольше поиска: 15 секунд здесь
+    // мало, а обрыв по таймауту выглядит как отказ перевозчика.
+    return request("/api/reprice", { method: "POST", body, signal, timeoutMs: 30000 });
+}
+
 export function checkHealth({ signal } = {}) {
     return request("/api/health", { method: "GET", signal, timeoutMs: 4000 });
 }

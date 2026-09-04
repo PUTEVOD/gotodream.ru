@@ -1,5 +1,5 @@
 import type { SearchRequest } from "../schema.ts";
-import type { FlightProvider, ProviderResult, SearchOptions } from "./types.ts";
+import type { FlightProvider, ProviderResult, RepriceInput, RepriceResult, SearchOptions } from "./types.ts";
 
 /**
  * Кэш выдачи поставщика + объединение одинаковых параллельных запросов.
@@ -97,5 +97,16 @@ export function withCache(provider: FlightProvider, options: CacheOptions): Flig
       inFlight.set(key, promise);
       return promise;
     },
+
+    /* Пересчёт цены не кэшируется и объединению не подлежит: его смысл в том,
+       чтобы получить цену на сейчас. Отдать сохранённый ответ значило бы
+       подтвердить цену, которой, возможно, уже нет.
+
+       Метод пробрасывается, только если он есть у источника: иначе обёртка
+       объявила бы умение, которого нет, и вызов падал бы уже внутри. */
+    reprice: provider.reprice
+      ? (input: RepriceInput, searchOptions?: SearchOptions): Promise<RepriceResult> =>
+        provider.reprice!(input, searchOptions)
+      : undefined,
   };
 }

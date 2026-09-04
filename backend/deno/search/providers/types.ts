@@ -1,5 +1,5 @@
 import type { SearchRequest } from "../schema.ts";
-import type { Offer } from "../offer.ts";
+import type { Offer, Reprice } from "../offer.ts";
 
 /**
  * Контракт поставщика рейсов.
@@ -13,6 +13,27 @@ import type { Offer } from "../offer.ts";
 export interface FlightProvider {
   readonly name: string;
   search(request: SearchRequest, options?: SearchOptions): Promise<ProviderResult>;
+  /**
+   * Подтверждение цены выбранного предложения.
+   *
+   * Необязательный метод: поставщик, у которого цена в выдаче окончательна,
+   * его не реализует, и тогда шаг пересчёта на сервере просто не предлагается
+   * — вместо тихой заглушки, которая возвращает ту же цену и выглядит как
+   * подтверждение.
+   */
+  reprice?(request: RepriceInput, options?: SearchOptions): Promise<RepriceResult>;
+}
+
+/** Всё, что нужно для пересчёта: параметры поиска и выбранное предложение. */
+export interface RepriceInput {
+  search: SearchRequest;
+  offer: Offer;
+}
+
+export interface RepriceResult {
+  reprice: Reprice;
+  source: string;
+  warnings: string[];
 }
 
 export interface SearchOptions {
@@ -49,6 +70,8 @@ export const PROVIDER_ERROR_STATUS = {
   PROVIDER_BAD_RESPONSE: 502,
   /** Шлюз осмысленно отказал: нет рейсов по правилам, неверные параметры запроса. */
   PROVIDER_REJECTED: 422,
+  /** Источник не умеет этот шаг (например, у генератора нет пересчёта цены). */
+  PROVIDER_UNSUPPORTED: 501,
 } as const;
 
 export type ProviderErrorCode = keyof typeof PROVIDER_ERROR_STATUS;

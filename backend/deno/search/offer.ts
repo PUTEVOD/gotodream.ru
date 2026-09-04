@@ -18,9 +18,42 @@ export type CabinClass = typeof CABIN_CLASSES[number];
 
 /** Один физический перелёт: борт из аэропорта A в аэропорт B без посадок. */
 export interface Segment {
+  /**
+   * Ключ рейса в ответе поставщика (SEG1, SEG2 …).
+   *
+   * Нужен не для показа. Пересчёт цены и бронирование заново перечисляют
+   * рейсы и связывают с каждым тариф через этот ключ (`FareComponent
+   * refs="SEG1"`), поэтому он должен дожить от разбора выдачи до следующего
+   * запроса. У генератора ключ синтетический — важно только, чтобы он был
+   * уникален внутри предложения.
+   */
+  key: string;
+  /**
+   * Базис тарифа именно этого рейса (SBSRT, YBSOW …).
+   *
+   * Хранится по сегменту, а не по предложению: `ItinReshopRQ` требует
+   * `FareBasisCode` и `RBD` для каждого `FareComponent`. В ответах стенда
+   * все сегменты одного предложения пока приходят с одним тарифом, поэтому
+   * разницы не видно — она появится на первом же маршруте, где сегменты
+   * тарифицированы по-разному.
+   */
+  fareBasis?: string;
+  /** Класс бронирования (RBD) этого рейса: Q, S, Y, U … */
+  bookingClass?: string;
+  /** Для показа: «S7-1003». */
   flightNumber: string;
   marketingAirline: string;
   operatingAirline: string;
+  /**
+   * Номер рейса без кода авиакомпании: «1003».
+   *
+   * Отдельно от flightNumber, потому что в запросах пересчёта и брони код и
+   * номер идут разными элементами (`MarketingCarrier/AirlineID` и
+   * `.../FlightNumber`). Разбирать обратно склеенную строку — способ однажды
+   * ошибиться на рейсе, в номере которого есть дефис.
+   */
+  marketingFlightNumber?: string;
+  operatingFlightNumber?: string;
   departureAirport: string;
   arrivalAirport: string;
   departureDate: string;
@@ -84,6 +117,37 @@ export interface Offer extends Leg {
   priceBreakdown?: PriceBreakdown;
   /** Возвратность тарифа, если поставщик её сообщил. */
   refundable?: boolean;
+}
+
+/** Сумма по одному пассажиру в подтверждённой цене. */
+export interface RepricedPassenger {
+  /** Ключ, под которым пассажир ушёл в запрос: SH1, SH3i … */
+  objectKey: string;
+  ptc: string;
+  price: number;
+  base: number;
+  taxes: number;
+}
+
+/**
+ * Подтверждённая цена выбранного предложения.
+ *
+ * Цена в выдаче поиска — не обязательство: между поиском и оплатой места
+ * продаются и тарифы пересчитываются. Поэтому перед бронированием цена
+ * подтверждается отдельным запросом, и разница показывается человеку до
+ * того, как он введёт данные пассажиров, а не после списания.
+ */
+export interface Reprice {
+  /** Идентификатор предложения из выдачи, к которому относится пересчёт. */
+  offerId: string;
+  price: number;
+  currency: string;
+  breakdown: { base: number; taxes: number; fees?: number };
+  passengers: RepricedPassenger[];
+  /** Цена, которая стояла в выдаче поиска. */
+  previousPrice: number;
+  /** price - previousPrice. Ноль — цена не изменилась. */
+  difference: number;
 }
 
 export interface FacetValue {

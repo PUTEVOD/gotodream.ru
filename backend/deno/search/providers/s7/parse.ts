@@ -9,8 +9,8 @@ import {
   type Segment,
 } from "../../offer.ts";
 import { describeAirline, describeAirport } from "../../reference.ts";
-import { ProviderError } from "../types.ts";
-import { arr, attr, isoDurationToMinutes, num, parseXml, pick, text } from "./xml.ts";
+import { arr, attr, isoDurationToMinutes, num, pick, text } from "./xml.ts";
+import { readResponseRoot } from "./envelope.ts";
 
 /**
  * Разбор AirShoppingRS в предложения контракта.
@@ -68,7 +68,7 @@ interface DataLists {
   penalties: Map<string, { changeFee?: number; refundFee?: number }>;
 }
 
-function parseSegment(node: Record<string, unknown>): Segment {
+function parseSegment(key: string, node: Record<string, unknown>): Segment {
   const departure = pick(node, "Departure");
   const arrival = pick(node, "Arrival");
   const marketing = pick(node, "MarketingCarrier");
@@ -79,9 +79,13 @@ function parseSegment(node: Record<string, unknown>): Segment {
   );
 
   return {
+    key,
     flightNumber: `${text(pick(marketing, "AirlineID"))}-${text(pick(marketing, "FlightNumber"))}`,
     marketingAirline: text(pick(marketing, "AirlineID")),
     operatingAirline: text(pick(operating, "AirlineID")) || text(pick(marketing, "AirlineID")),
+    marketingFlightNumber: text(pick(marketing, "FlightNumber")) || undefined,
+    operatingFlightNumber: text(pick(operating, "FlightNumber")) ||
+      text(pick(marketing, "FlightNumber")) || undefined,
     departureAirport: text(pick(departure, "AirportCode")),
     arrivalAirport: text(pick(arrival, "AirportCode")),
     departureDate: text(pick(departure, "Date")),
@@ -100,7 +104,7 @@ function parseDataLists(root: unknown): DataLists {
   const segments = new Map<string, Segment>();
   for (const node of arr(pick(lists, "FlightSegmentList", "FlightSegment"))) {
     const key = attr(node, "SegmentKey");
-    if (key) segments.set(key, parseSegment(node));
+    if (key) segments.set(key, parseSegment(key, node));
   }
 
   const originDestinations = new Map<string, {
@@ -177,9 +181,29 @@ function parseDataLists(root: unknown): DataLists {
   return { segments, originDestinations, checkedBags, carryOnBags, penalties };
 }
 
-/** Набор рейсов одного направления -> Leg с пересадками и общей длительностью. */
-function buildLeg(refs: string[], lists: DataLists): Leg | null {
-  const segments = refs.map((ref) => lists.segments.get(ref)).filter((s): s is Segment => Boolean(s));
+/** Тариф и класс бронирования одного рейса внутри конкретного предложения. */
+interface SegmentFare {
+  bookingClass?: string;
+  fareBasis?: string;
+  seatsLeft?: number;
+}
+
+/**
+ * Набор рейсов одного направления -> Leg с пересадками и общей длительностью.
+ *
+ * Рейсы из DataLists общие для всего ответа, а тариф у каждого предложения
+ * свой, поэтому сегмент копируется, а не дополняется на месте: иначе тариф
+ * последнего разобранного предложения оказался бы у всех остальных.
+ */
+function buildLeg(refs: string[], lists: DataLists, fares?: Map<string, SegmentFare>): Leg | null {
+  const segments = refs
+    .map((ref) => {
+      const segment = lists.segments.get(ref);
+      if (!segment) return undefined;
+      const fare = fares?.get(ref);
+      return fare ? { ...segment, bookingClass: fare.bookingClass, fareBasis: fare.fareBasis } : segment;
+    })
+    .filter((s): s is Segment => Boolean(s));
   if (!segments.length) return null;
 
   const first = segments[0];
@@ -253,22 +277,36 @@ function parseSlice(offerPrice: unknown, lists: DataLists): SliceInfo {
   // Leg нельзя: «туда» и «обратно» превратились бы в перелёт с пересадкой
   // длиной в неделю. В ответах стенда S7 в одном OfferPrice всегда один OD,
   // но код не должен на это опираться.
-  const legs = odRefs.length
-    ? odRefs
-      .map((key) => buildLeg(lists.originDestinations.get(key)?.flightRefs ?? [], lists))
-      .filter((leg): leg is Leg => leg !== null)
-    : [buildLeg([...new Set(references.map((r) => attr(r, "ref")))].filter(Boolean), lists)]
-      .filter((leg): leg is Leg => leg !== null);
-
   let cabinDesignator = "";
   let cabinMarketingName = "";
-  let bookingClass = "";
-  let fareBasis = "";
   let seatsLeft = Number.POSITIVE_INFINITY;
   const checkedBagRefs: string[] = [];
   const carryOnRefs: string[] = [];
 
+  /* Тариф собирается ПО КАЖДОМУ РЕЙСУ.
+   *
+   * Ссылки внутри ApplicableFlight идут не по одной на рейс, а группами:
+   * у одного ref="SEG1" лежит Cabin, у следующего ref="SEG1" — ClassOfService,
+   * у третьего — нормы багажа. Поэтому значения не перезаписываются, а
+   * накапливаются в записи своего сегмента.
+   *
+   * Раньше здесь бралось первое встреченное значение и объявлялось тарифом
+   * всего предложения. На стенде это незаметно: сегменты одного предложения
+   * приходят с одним тарифом. Но пересчёт цены требует FareBasisCode и RBD
+   * для КАЖДОГО FareComponent, и на маршруте с разной тарификацией сегментов
+   * в запрос уехал бы тариф первого рейса, помеченный ключом второго. */
+  const fares = new Map<string, SegmentFare>();
+  const fareFor = (ref: string) => {
+    const existing = fares.get(ref);
+    if (existing) return existing;
+    const created: SegmentFare = {};
+    fares.set(ref, created);
+    return created;
+  };
+
   for (const reference of references) {
+    const ref = attr(reference, "ref");
+
     const cabin = pick(reference, "Cabin");
     if (cabin) {
       cabinDesignator ||= text(pick(cabin, "CabinDesignator"));
@@ -277,8 +315,13 @@ function parseSlice(offerPrice: unknown, lists: DataLists): SliceInfo {
 
     const classOfService = pick(reference, "ClassOfService");
     if (classOfService) {
-      bookingClass ||= text(pick(classOfService, "Code"));
-      fareBasis ||= text(pick(classOfService, "MarketingName"));
+      const code = text(pick(classOfService, "Code"));
+      const basis = text(pick(classOfService, "MarketingName"));
+      if (ref) {
+        const fare = fareFor(ref);
+        fare.bookingClass ||= code;
+        fare.fareBasis ||= basis;
+      }
       const seats = attr(pick(classOfService, "Code"), "SeatsLeft");
       // Мест по направлению столько, сколько на самом загруженном рейсе.
       if (seats) seatsLeft = Math.min(seatsLeft, Number(seats) || 0);
@@ -290,6 +333,18 @@ function parseSlice(offerPrice: unknown, lists: DataLists): SliceInfo {
       for (const value of arr(pick(bags, "CarryOnReferences"))) carryOnRefs.push(text(value));
     }
   }
+
+  const legs = odRefs.length
+    ? odRefs
+      .map((key) => buildLeg(lists.originDestinations.get(key)?.flightRefs ?? [], lists, fares))
+      .filter((leg): leg is Leg => leg !== null)
+    : [buildLeg([...new Set(references.map((r) => attr(r, "ref")))].filter(Boolean), lists, fares)]
+      .filter((leg): leg is Leg => leg !== null);
+
+  // Значения для карточки: она показывает одно на предложение.
+  const first = legs[0]?.segments?.[0];
+  const bookingClass = first?.bookingClass ?? "";
+  const fareBasis = first?.fareBasis ?? "";
 
   // Штрафы привязаны к тарифу через OtherAssociation: Type — базис тарифа,
   // ReferenceValue — ключ в PenaltyList.
@@ -386,53 +441,8 @@ export interface ParseResult {
   warnings: string[];
 }
 
-/**
- * Ошибки NDC приходят не HTTP-статусом, а телом ответа: SOAP Fault или
- * блок Errors внутри AirShoppingRS. Ответ «200 OK» с Errors внутри — это
- * отказ, и молча отдавать по нему пустую выдачу нельзя: человек увидит
- * «ничего не найдено» там, где на самом деле неверный запрос.
- */
-function assertNoErrors(root: unknown, envelope: unknown): void {
-  const fault = pick(envelope, "Envelope", "Body", "Fault");
-  if (fault) {
-    throw new ProviderError("PROVIDER_UNAVAILABLE", "Шлюз S7 вернул SOAP Fault", {
-      internal: `${text(pick(fault, "faultcode"))}: ${text(pick(fault, "faultstring"))}`,
-    });
-  }
-
-  const errors = arr(pick(root, "Errors", "Error"));
-  if (errors.length) {
-    const details = errors.map((error) => ({
-      path: attr(error, "Code") || "s7",
-      message: text(error) || attr(error, "ShortText") || "Ошибка шлюза",
-    }));
-    throw new ProviderError("PROVIDER_REJECTED", "Шлюз S7 отклонил запрос", {
-      details,
-      internal: details.map((d) => `${d.path}: ${d.message}`).join("; "),
-    });
-  }
-}
-
 export function parseAirShoppingRS(xml: string): ParseResult {
-  let envelope: Record<string, unknown>;
-  try {
-    envelope = parseXml(xml);
-  } catch (error) {
-    throw new ProviderError("PROVIDER_BAD_RESPONSE", "Ответ шлюза S7 не удалось разобрать", {
-      internal: error instanceof Error ? error.message : String(error),
-      cause: error,
-    });
-  }
-
-  const root = pick(envelope, "Envelope", "Body", "AirShoppingRS") ?? pick(envelope, "AirShoppingRS");
-  assertNoErrors(root, envelope);
-
-  if (!root) {
-    throw new ProviderError("PROVIDER_BAD_RESPONSE", "В ответе шлюза S7 нет AirShoppingRS", {
-      internal: xml.slice(0, 500),
-    });
-  }
-
+  const root = readResponseRoot(xml, "AirShoppingRS");
   const lists = parseDataLists(root);
   const warnings: string[] = [];
   const offers: Offer[] = [];

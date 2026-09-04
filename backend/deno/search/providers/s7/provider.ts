@@ -1,9 +1,18 @@
 import { config } from "../../config.ts";
 import type { SearchRequest } from "../../schema.ts";
-import { type FlightProvider, ProviderError, type ProviderResult, type SearchOptions } from "../types.ts";
-import { buildAirShoppingRQ } from "./request.ts";
+import {
+  type FlightProvider,
+  ProviderError,
+  type ProviderResult,
+  type RepriceInput,
+  type RepriceResult,
+  type SearchOptions,
+} from "../types.ts";
+import { buildAirShoppingRQ, type S7Credentials } from "./request.ts";
+import { buildItinReshopRQ, offerSegments } from "./reprice.ts";
 import { callSoap } from "./transport.ts";
 import { parseAirShoppingRS } from "./parse.ts";
+import { parseItinReshopRS } from "./parseReprice.ts";
 
 /**
  * Провайдер «s7»: поиск через NDC-шлюз S7 (agent-api/gaia).
@@ -43,6 +52,16 @@ function assertConfigured(): void {
   }
 }
 
+/** Реквизиты агента для конверта. Одни и те же во всех операциях шлюза. */
+const credentials = (): S7Credentials => ({
+  pseudoCity: config.s7.pseudoCity,
+  agentUserID: config.s7.agentUserID,
+  senderName: config.s7.senderName,
+  userRole: config.s7.userRole,
+  posType: config.s7.posType,
+  requestorType: config.s7.requestorType,
+});
+
 export const s7Provider: FlightProvider = {
   name: "s7",
 
@@ -50,14 +69,7 @@ export const s7Provider: FlightProvider = {
     assertConfigured();
 
     const xml = buildAirShoppingRQ(request, {
-      credentials: {
-        pseudoCity: config.s7.pseudoCity,
-        agentUserID: config.s7.agentUserID,
-        senderName: config.s7.senderName,
-        userRole: config.s7.userRole,
-        posType: config.s7.posType,
-        requestorType: config.s7.requestorType,
-      },
+      credentials: credentials(),
       sendCabinPreference: config.s7.sendCabinPreference,
     });
 
@@ -94,5 +106,59 @@ export const s7Provider: FlightProvider = {
     }
 
     return { offers, source: "s7", warnings };
+  },
+
+  async reprice(input: RepriceInput, options: SearchOptions = {}): Promise<RepriceResult> {
+    assertConfigured();
+
+    /* Без ключей сегментов и базисов тарифа собрать ItinReshopRQ нельзя:
+       запрос перечисляет рейсы поимённо. Проверяем это до обращения к шлюзу
+       — отказ «предложение неполное» понятнее, чем ответ стенда об
+       отсутствующем FareBasisCode. */
+    const segments = offerSegments(input.offer);
+    if (!segments.length) {
+      throw new ProviderError("PROVIDER_BAD_RESPONSE", "В предложении нет рейсов для пересчёта", {
+        internal: `offer ${input.offer.id}`,
+      });
+    }
+    const incomplete = segments.filter((s) => !s.key || !s.fareBasis || !s.bookingClass);
+    if (incomplete.length) {
+      throw new ProviderError("PROVIDER_BAD_RESPONSE", "В предложении не хватает данных о тарифе", {
+        internal: `offer ${input.offer.id}: сегменты без тарифа — ${
+          incomplete.map((s) => s.key || s.flightNumber).join(", ")
+        }`,
+      });
+    }
+
+    const { xml } = buildItinReshopRQ(input.offer, input.search, { credentials: credentials() });
+
+    const response = await callSoap(xml, {
+      endpoint: config.s7.endpoint,
+      login: config.s7.login,
+      password: config.s7.password,
+      soapAction: soapAction(config.s7.soapActionBase, config.s7.repriceOperation),
+      apiVersion: config.s7.apiVersion,
+      timeoutMs: config.s7.timeoutMs,
+      // Пересчёт не повторяем: он не идемпотентен по смыслу (шлюз может
+      // придержать места), и второй ответ всё равно нельзя считать «тем же».
+      retries: 0,
+      dumpDir: config.s7.dumpDir,
+      fixture: config.s7.repriceFixture,
+      signal: options.signal,
+    });
+
+    const { reprice, warnings } = parseItinReshopRS(response.xml, {
+      offerId: input.offer.id,
+      previousPrice: input.offer.price,
+    });
+
+    console.info(
+      `s7: ${config.s7.repriceOperation} ${input.offer.id} -> ${reprice.price} ${reprice.currency}` +
+        ` (было ${reprice.previousPrice}) за ${response.elapsedMs} мс${
+          response.fromFixture ? " (фикстура)" : ""
+        }`,
+    );
+
+    return { reprice, source: "s7", warnings };
   },
 };

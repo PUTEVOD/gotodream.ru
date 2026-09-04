@@ -42,6 +42,12 @@ export function useFlightSearch(filters, { debounceMs = 300 } = {}) {
         status: "idle",
         flights: [],
         facets: EMPTY_FACETS,
+        /* Идентификатор выдачи. Нужен следующему шагу: подтверждение цены
+           ссылается на пару «выдача + предложение», а не пересылает
+           предложение обратно на сервер. Меняется с каждым ответом, в том
+           числе при перезапросе по фильтрам, — поэтому подтверждённую цену
+           после нового ответа надо сбрасывать. */
+        searchId: null,
         error: null,
     });
 
@@ -69,6 +75,7 @@ export function useFlightSearch(filters, { debounceMs = 300 } = {}) {
             setState({
                 status: "success",
                 flights: Array.isArray(data.flights) ? data.flights : [],
+                searchId: data.searchId ?? null,
                 // Каждый список проверяется отдельно: сервер, не знающий про
                 // фасеты (или знающий только про часть), не должен ронять
                 // страницу — соответствующая группа фильтров просто не
@@ -84,6 +91,7 @@ export function useFlightSearch(filters, { debounceMs = 300 } = {}) {
             setState((prev) => ({
                 status: "error",
                 flights: [],
+                searchId: null,
                 facets: prev.facets,
                 error: error instanceof ApiError ? error : new ApiError("Неизвестная ошибка"),
             }));
